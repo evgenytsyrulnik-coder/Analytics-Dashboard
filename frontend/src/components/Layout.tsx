@@ -11,8 +11,10 @@ export default function Layout() {
 
   useEffect(() => {
     if (user?.role === 'ORG_ADMIN') {
+      let cancelled = false;
       api.get(`/orgs/${user.orgId}/teams`)
         .then((res) => {
+          if (cancelled) return;
           const teams: TeamInfo[] = res.data.teams.map((t: { team_id: string; name: string }) => ({
             teamId: t.team_id,
             teamName: t.name,
@@ -20,9 +22,12 @@ export default function Layout() {
           teams.sort((a, b) => a.teamName.localeCompare(b.teamName));
           setAllTeams(teams);
         })
-        .catch(() => setAllTeams(null));
+        .catch(() => {
+          if (!cancelled) setAllTeams(null);
+        });
+      return () => { cancelled = true; };
     }
-  }, [user]);
+  }, [user?.role, user?.orgId]);
 
   if (!user) return null;
 
