@@ -18,7 +18,11 @@
 - Base path: `/api/v1`
 - All timestamps in ISO 8601 UTC (`2026-01-15T08:30:00Z`).
 - All monetary amounts in USD as `BigDecimal` strings with 6 decimal places (e.g., `"0.004200"`).
-- Pagination: cursor-based using `?cursor=<opaque>&limit=<int>` (default limit 50, max 200).
+- JSON field names use **camelCase** (e.g., `totalRuns`, `orgId`, `successRate`), matching Java record/bean property naming.
+- Null fields are omitted from responses (`default-property-inclusion: non_null`).
+- Pagination:
+  - **Limit-based:** `?limit=<int>` (default 50, max 200) with `hasMore` flag in response. Used for user run lists.
+  - **Page-based:** `?page=<int>&size=<int>` (default page 0, default size 25, max 100) with `totalPages` and `totalElements` in response. Used for org-wide runs list.
 - Errors follow RFC 7807 Problem Details:
   ```json
   {
@@ -33,7 +37,7 @@
 
 ## 3. Authentication
 
-Every request must include an `Authorization: Bearer <JWT>` header. The JWT is issued by the platform's identity provider and contains:
+Every request (except login) must include an `Authorization: Bearer <JWT>` header. The JWT is issued by the login endpoint and contains:
 
 ```json
 {
@@ -44,11 +48,66 @@ Every request must include an `Authorization: Bearer <JWT>` header. The JWT is i
 }
 ```
 
-The backend validates the JWT signature against the IdP's JWKS endpoint. Org-scoping is enforced at the service layer — every query is filtered by `org_id` extracted from the token.
+The backend validates the JWT signature using a configured secret key. Org-scoping is enforced at the service layer — every query is filtered by `org_id` extracted from the token.
 
 ## 4. API Endpoints
 
-### 4.1 Organization Analytics
+### 4.1 Authentication
+
+#### `POST /api/v1/auth/login`
+
+Authenticates a user with email and password, returning a JWT token and user context.
+
+**Request Body:**
+
+```json
+{
+  "email": "alice@example.com",
+  "password": "secret"
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `email` | string | yes | User's email address |
+| `password` | string | yes | User's password |
+
+**Response `200 OK`:**
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiJ9...",
+  "userId": "user-uuid",
+  "orgId": "org-uuid",
+  "orgName": "Acme Corp",
+  "email": "alice@example.com",
+  "displayName": "Alice Chen",
+  "role": "ORG_ADMIN",
+  "teams": [
+    {
+      "teamId": "team-uuid-1",
+      "teamName": "Platform"
+    }
+  ]
+}
+```
+
+**Response `401 Unauthorized`:**
+
+```json
+{
+  "type": "https://analytics.example.com/errors/unauthorized",
+  "title": "Unauthorized",
+  "status": 401,
+  "detail": "Invalid email or password"
+}
+```
+
+**Authorization:** Public (no JWT required).
+
+---
+
+### 4.2 Organization Analytics
 
 #### `GET /api/v1/orgs/{orgId}/analytics/summary`
 
@@ -61,29 +120,29 @@ Returns aggregate metrics for the organization over a date range.
 | `from` | ISO date | yes | Start date (inclusive) |
 | `to` | ISO date | yes | End date (inclusive) |
 | `team_id` | UUID | no | Filter to a specific team |
-| `agent_type` | string | no | Filter to a specific agent type |
+| `agent_type` | string | no | Filter to a specific agent type slug |
 | `status` | enum | no | Filter by run status: `SUCCEEDED`, `FAILED`, `RUNNING`, `CANCELLED` |
 
 **Response `200 OK`:**
 
 ```json
 {
-  "org_id": "org-uuid",
+  "orgId": "org-uuid",
   "period": { "from": "2026-01-01", "to": "2026-01-31" },
-  "total_runs": 142857,
-  "succeeded_runs": 135000,
-  "failed_runs": 7500,
-  "cancelled_runs": 357,
-  "running_runs": 0,
-  "success_rate": 0.9451,
-  "total_tokens": 58000000000,
-  "total_input_tokens": 42000000000,
-  "total_output_tokens": 16000000000,
-  "total_cost": "24350.120000",
-  "avg_duration_ms": 34500,
-  "p50_duration_ms": 28000,
-  "p95_duration_ms": 95000,
-  "p99_duration_ms": 180000
+  "totalRuns": 142857,
+  "succeededRuns": 135000,
+  "failedRuns": 7500,
+  "cancelledRuns": 357,
+  "runningRuns": 0,
+  "successRate": 0.9451,
+  "totalTokens": 58000000000,
+  "totalInputTokens": 42000000000,
+  "totalOutputTokens": 16000000000,
+  "totalCost": "24350.120000",
+  "avgDurationMs": 34500,
+  "p50DurationMs": 28000,
+  "p95DurationMs": 95000,
+  "p99DurationMs": 180000
 }
 ```
 
@@ -105,17 +164,17 @@ Returns daily aggregated metrics for charting.
 
 ```json
 {
-  "org_id": "org-uuid",
+  "orgId": "org-uuid",
   "granularity": "DAILY",
-  "data_points": [
+  "dataPoints": [
     {
       "timestamp": "2026-01-01T00:00:00Z",
-      "total_runs": 4500,
-      "succeeded_runs": 4300,
-      "failed_runs": 180,
-      "total_tokens": 1800000000,
-      "total_cost": "780.500000",
-      "avg_duration_ms": 33000
+      "totalRuns": 4500,
+      "succeededRuns": 4300,
+      "failedRuns": 180,
+      "totalTokens": 1800000000,
+      "totalCost": "780.500000",
+      "avgDurationMs": 33000
     }
   ]
 }
@@ -135,17 +194,17 @@ Returns usage breakdown per team.
 
 ```json
 {
-  "org_id": "org-uuid",
+  "orgId": "org-uuid",
   "period": { "from": "2026-01-01", "to": "2026-01-31" },
   "teams": [
     {
-      "team_id": "team-uuid-1",
-      "team_name": "Platform",
-      "total_runs": 45000,
-      "total_tokens": 18000000000,
-      "total_cost": "7800.000000",
-      "success_rate": 0.96,
-      "avg_duration_ms": 31000
+      "teamId": "team-uuid-1",
+      "teamName": "Platform",
+      "totalRuns": 45000,
+      "totalTokens": 18000000000,
+      "totalCost": "7800.000000",
+      "successRate": 0.96,
+      "avgDurationMs": 31000
     }
   ]
 }
@@ -165,17 +224,17 @@ Returns usage breakdown per agent type.
 
 ```json
 {
-  "org_id": "org-uuid",
+  "orgId": "org-uuid",
   "period": { "from": "2026-01-01", "to": "2026-01-31" },
-  "agent_types": [
+  "agentTypes": [
     {
-      "agent_type": "code_review",
-      "display_name": "Code Review Agent",
-      "total_runs": 60000,
-      "total_tokens": 25000000000,
-      "total_cost": "10500.000000",
-      "success_rate": 0.97,
-      "avg_duration_ms": 28000
+      "agentType": "code_review",
+      "displayName": "Code Review Agent",
+      "totalRuns": 60000,
+      "totalTokens": 25000000000,
+      "totalCost": "10500.000000",
+      "successRate": 0.97,
+      "avgDurationMs": 28000
     }
   ]
 }
@@ -195,17 +254,17 @@ Returns top N users by a given metric.
 
 ```json
 {
-  "org_id": "org-uuid",
-  "sort_by": "cost",
+  "orgId": "org-uuid",
+  "sortBy": "cost",
   "users": [
     {
-      "user_id": "user-uuid-1",
-      "display_name": "Alice Chen",
+      "userId": "user-uuid-1",
+      "displayName": "Alice Chen",
       "email": "alice@example.com",
-      "team_name": "Platform",
-      "total_runs": 3200,
-      "total_tokens": 1500000000,
-      "total_cost": "620.000000"
+      "teamName": "Platform",
+      "totalRuns": 3200,
+      "totalTokens": 1500000000,
+      "totalCost": "620.000000"
     }
   ]
 }
@@ -215,11 +274,63 @@ Returns top N users by a given metric.
 
 ---
 
-### 4.2 Team Analytics
+### 4.3 Organization Runs
+
+#### `GET /api/v1/orgs/{orgId}/runs`
+
+Returns a page-based paginated list of all agent runs across the organization with advanced filtering. Supports multi-value status filtering.
+
+**Query Parameters:**
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `from` | ISO date | yes | Start date (inclusive) |
+| `to` | ISO date | yes | End date (inclusive) |
+| `team_id` | UUID | no | Filter to a specific team |
+| `user_id` | UUID | no | Filter to a specific user |
+| `status` | string[] | no | Filter by run status (repeatable): `SUCCEEDED`, `FAILED`, `RUNNING`, `CANCELLED` |
+| `agent_type` | string | no | Filter to a specific agent type slug |
+| `page` | int | no | Page number, zero-indexed (default `0`) |
+| `size` | int | no | Page size (default `25`, max `100`) |
+
+**Response `200 OK`:**
+
+```json
+{
+  "runs": [
+    {
+      "runId": "run-uuid-1",
+      "userId": "user-uuid",
+      "userName": "Alice Chen",
+      "teamId": "team-uuid-1",
+      "teamName": "Platform",
+      "agentType": "code_review",
+      "agentTypeDisplayName": "Code Review Agent",
+      "status": "SUCCEEDED",
+      "startedAt": "2026-01-15T08:30:00Z",
+      "finishedAt": "2026-01-15T08:30:34Z",
+      "durationMs": 34000,
+      "totalTokens": 480000,
+      "totalCost": "0.198000"
+    }
+  ],
+  "page": 0,
+  "totalPages": 12,
+  "totalElements": 285
+}
+```
+
+**Authorization:** `ORG_ADMIN` only.
+
+---
+
+### 4.4 Team Analytics
 
 #### `GET /api/v1/teams/{teamId}/analytics/summary`
 
 Same structure as org summary, scoped to a team.
+
+**Query Parameters:** `from`, `to`, `agent_type`, `status`.
 
 **Authorization:** `ORG_ADMIN`, `TEAM_LEAD` (own teams only).
 
@@ -229,13 +340,15 @@ Same structure as org summary, scoped to a team.
 
 Same structure as org timeseries, scoped to a team.
 
+**Query Parameters:** `from`, `to`, `agent_type`, `status`, `granularity`.
+
 **Authorization:** `ORG_ADMIN`, `TEAM_LEAD` (own teams only).
 
 ---
 
 #### `GET /api/v1/teams/{teamId}/analytics/by-user`
 
-Returns per-user breakdown within the team.
+Returns per-user breakdown within the team. Uses the same `ByTeamResponse` structure, where each entry represents a user instead of a team.
 
 **Query Parameters:** `from`, `to`, `agent_type`, `status`.
 
@@ -243,27 +356,29 @@ Returns per-user breakdown within the team.
 
 ```json
 {
-  "team_id": "team-uuid-1",
+  "orgId": "org-uuid",
   "period": { "from": "2026-01-01", "to": "2026-01-31" },
-  "users": [
+  "teams": [
     {
-      "user_id": "user-uuid-1",
-      "display_name": "Alice Chen",
-      "total_runs": 3200,
-      "total_tokens": 1500000000,
-      "total_cost": "620.000000",
-      "success_rate": 0.98,
-      "avg_duration_ms": 27000
+      "teamId": "user-uuid-1",
+      "teamName": "Alice Chen",
+      "totalRuns": 3200,
+      "totalTokens": 1500000000,
+      "totalCost": "620.000000",
+      "successRate": 0.98,
+      "avgDurationMs": 27000
     }
   ]
 }
 ```
 
+> **Note:** This endpoint reuses the `ByTeamResponse` structure. In this context, `teamId` contains the user ID and `teamName` contains the user's display name.
+
 **Authorization:** `ORG_ADMIN`, `TEAM_LEAD` (own teams only).
 
 ---
 
-### 4.3 User / Personal Analytics
+### 4.5 User / Personal Analytics
 
 #### `GET /api/v1/users/me/analytics/summary`
 
@@ -275,16 +390,17 @@ Returns aggregate metrics for the authenticated user.
 
 ```json
 {
-  "user_id": "user-uuid",
+  "userId": "user-uuid",
+  "displayName": "Alice Chen",
   "period": { "from": "2026-01-01", "to": "2026-01-31" },
-  "total_runs": 320,
-  "succeeded_runs": 310,
-  "failed_runs": 10,
-  "total_tokens": 150000000,
-  "total_cost": "62.400000",
-  "avg_duration_ms": 29000,
-  "team_rank": 3,
-  "team_size": 12
+  "totalRuns": 320,
+  "succeededRuns": 310,
+  "failedRuns": 10,
+  "totalTokens": 150000000,
+  "totalCost": "62.400000",
+  "avgDurationMs": 29000,
+  "teamRank": 3,
+  "teamSize": 12
 }
 ```
 
@@ -294,7 +410,9 @@ Returns aggregate metrics for the authenticated user.
 
 #### `GET /api/v1/users/me/analytics/timeseries`
 
-Returns daily personal usage for charting.
+Returns daily personal usage for charting. Same response structure as org timeseries (with `orgId` set to `null`).
+
+**Query Parameters:** `from`, `to`, `agent_type`, `status`.
 
 **Authorization:** Any authenticated user.
 
@@ -302,9 +420,17 @@ Returns daily personal usage for charting.
 
 #### `GET /api/v1/users/me/runs`
 
-Returns paginated list of the user's agent runs.
+Returns the user's agent runs, limited to the most recent N results.
 
-**Query Parameters:** `from`, `to`, `agent_type`, `status`, `cursor`, `limit`.
+**Query Parameters:**
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `from` | ISO date | yes | Start date (inclusive) |
+| `to` | ISO date | yes | End date (inclusive) |
+| `agent_type` | string | no | Filter to a specific agent type slug |
+| `status` | enum | no | Filter by run status |
+| `limit` | int | no | Max results to return (default `50`, max `200`) |
 
 **Response `200 OK`:**
 
@@ -312,23 +438,55 @@ Returns paginated list of the user's agent runs.
 {
   "runs": [
     {
-      "run_id": "run-uuid-1",
-      "agent_type": "code_review",
-      "agent_type_display_name": "Code Review Agent",
+      "runId": "run-uuid-1",
+      "agentType": "code_review",
+      "agentTypeDisplayName": "Code Review Agent",
       "status": "SUCCEEDED",
-      "started_at": "2026-01-15T08:30:00Z",
-      "finished_at": "2026-01-15T08:30:34Z",
-      "duration_ms": 34000,
-      "total_tokens": 480000,
-      "total_cost": "0.198000"
+      "startedAt": "2026-01-15T08:30:00Z",
+      "finishedAt": "2026-01-15T08:30:34Z",
+      "durationMs": 34000,
+      "totalTokens": 480000,
+      "totalCost": "0.198000"
     }
   ],
-  "next_cursor": "eyJsYXN0X2lkIjoicnVuLXV1aWQtNTAifQ==",
-  "has_more": true
+  "nextCursor": null,
+  "hasMore": true
 }
 ```
 
+> **Note:** The `nextCursor` field is reserved for future cursor-based pagination support and is currently always `null`. The `hasMore` flag indicates whether additional runs exist beyond the returned `limit`.
+
 **Authorization:** Any authenticated user (returns own runs only).
+
+---
+
+#### `GET /api/v1/users/{userId}/analytics/summary`
+
+Returns aggregate metrics for a specific user. Same response structure as `GET /api/v1/users/me/analytics/summary`.
+
+**Query Parameters:** `from`, `to`, `agent_type`, `status`.
+
+**Authorization:** `ORG_ADMIN`, `TEAM_LEAD` (must share at least one team with the target user).
+
+---
+
+#### `GET /api/v1/users/{userId}/analytics/timeseries`
+
+Returns daily usage for a specific user. Same response structure as `GET /api/v1/users/me/analytics/timeseries`.
+
+**Query Parameters:** `from`, `to`, `agent_type`, `status`.
+
+**Authorization:** `ORG_ADMIN`, `TEAM_LEAD` (must share at least one team with the target user).
+
+---
+
+#### `GET /api/v1/users/{userId}/runs`
+
+Returns agent runs for a specific user. Same response structure and query parameters as `GET /api/v1/users/me/runs`.
+
+**Query Parameters:** `from`, `to`, `agent_type`, `status`, `limit`.
+
+**Authorization:** `ORG_ADMIN`, `TEAM_LEAD` (must share at least one team with the target user).
 
 ---
 
@@ -340,38 +498,38 @@ Returns full details for a single agent run.
 
 ```json
 {
-  "run_id": "run-uuid-1",
-  "org_id": "org-uuid",
-  "team_id": "team-uuid-1",
-  "user_id": "user-uuid",
-  "agent_type": "code_review",
-  "agent_type_display_name": "Code Review Agent",
-  "model_name": "claude-sonnet-4",
-  "model_version": "20250514",
+  "runId": "run-uuid-1",
+  "orgId": "org-uuid",
+  "teamId": "team-uuid-1",
+  "userId": "user-uuid",
+  "agentType": "code_review",
+  "agentTypeDisplayName": "Code Review Agent",
+  "modelName": "claude-sonnet-4",
+  "modelVersion": "20250514",
   "status": "SUCCEEDED",
-  "started_at": "2026-01-15T08:30:00Z",
-  "finished_at": "2026-01-15T08:30:34Z",
-  "duration_ms": 34000,
-  "input_tokens": 350000,
-  "output_tokens": 130000,
-  "total_tokens": 480000,
-  "input_cost": "0.105000",
-  "output_cost": "0.093000",
-  "total_cost": "0.198000",
-  "error_category": null,
-  "error_message": null
+  "startedAt": "2026-01-15T08:30:00Z",
+  "finishedAt": "2026-01-15T08:30:34Z",
+  "durationMs": 34000,
+  "inputTokens": 350000,
+  "outputTokens": 130000,
+  "totalTokens": 480000,
+  "inputCost": "0.105000",
+  "outputCost": "0.093000",
+  "totalCost": "0.198000",
+  "errorCategory": null,
+  "errorMessage": null
 }
 ```
 
-**Authorization:** Owner of the run, their team lead, or org admin.
+**Authorization:** Owner of the run, their team lead (if the run belongs to one of the lead's teams), or org admin.
 
 ---
 
-### 4.4 Budget & Alerts
+### 4.6 Budget & Alerts
 
 #### `GET /api/v1/orgs/{orgId}/budgets`
 
-Returns all configured budgets.
+Returns all configured budgets. The response serializes the `Budget` entity directly.
 
 **Response `200 OK`:**
 
@@ -379,34 +537,27 @@ Returns all configured budgets.
 {
   "budgets": [
     {
-      "budget_id": "budget-uuid-1",
+      "id": "budget-uuid-1",
+      "orgId": "org-uuid",
       "scope": "ORGANIZATION",
-      "scope_id": "org-uuid",
-      "monthly_limit": "50000.000000",
-      "current_spend": "24350.120000",
-      "utilization": 0.487,
-      "thresholds": [0.50, 0.80, 1.00],
-      "notification_channels": ["IN_APP", "EMAIL"]
-    },
-    {
-      "budget_id": "budget-uuid-2",
-      "scope": "TEAM",
-      "scope_id": "team-uuid-1",
-      "monthly_limit": "15000.000000",
-      "current_spend": "7800.000000",
-      "utilization": 0.52,
-      "thresholds": [0.50, 0.80, 1.00],
-      "notification_channels": ["IN_APP", "EMAIL"]
+      "scopeId": "org-uuid",
+      "monthlyLimit": 50000.000000,
+      "thresholds": "0.50,0.80,1.00",
+      "notificationChannels": "IN_APP,EMAIL",
+      "createdAt": "2026-01-01T00:00:00Z",
+      "updatedAt": "2026-01-15T12:00:00Z"
     }
   ]
 }
 ```
 
+> **Note:** `thresholds` and `notificationChannels` are stored and returned as comma-separated strings. `monthlyLimit` is serialized as a JSON number (BigDecimal).
+
 **Authorization:** `ORG_ADMIN` only.
 
 ---
 
-#### `PUT /api/v1/orgs/{orgId}/budgets/{budgetId}`
+#### `PUT /api/v1/orgs/{orgId}/budgets/{budgetId}` *(planned — not yet implemented)*
 
 Create or update a budget.
 
@@ -415,10 +566,10 @@ Create or update a budget.
 ```json
 {
   "scope": "TEAM",
-  "scope_id": "team-uuid-1",
-  "monthly_limit": "15000.000000",
+  "scopeId": "team-uuid-1",
+  "monthlyLimit": "15000.000000",
   "thresholds": [0.50, 0.80, 1.00],
-  "notification_channels": ["IN_APP", "EMAIL"]
+  "notificationChannels": ["IN_APP", "EMAIL"]
 }
 ```
 
@@ -426,7 +577,7 @@ Create or update a budget.
 
 ---
 
-#### `DELETE /api/v1/orgs/{orgId}/budgets/{budgetId}`
+#### `DELETE /api/v1/orgs/{orgId}/budgets/{budgetId}` *(planned — not yet implemented)*
 
 Delete a budget.
 
@@ -434,7 +585,7 @@ Delete a budget.
 
 ---
 
-### 4.5 Export
+### 4.7 Export *(planned — not yet implemented)*
 
 #### `POST /api/v1/orgs/{orgId}/exports`
 
@@ -489,15 +640,86 @@ Check export status and retrieve download URL.
 
 ---
 
-### 4.6 Reference Data
+### 4.8 Reference Data
 
 #### `GET /api/v1/orgs/{orgId}/teams`
 
 Returns list of teams in the organization (for filter dropdowns).
 
+**Response `200 OK`:**
+
+```json
+{
+  "teams": [
+    {
+      "team_id": "team-uuid-1",
+      "name": "Platform"
+    },
+    {
+      "team_id": "team-uuid-2",
+      "name": "Data Science"
+    }
+  ]
+}
+```
+
+**Authorization:** Any authenticated user in the organization.
+
+---
+
 #### `GET /api/v1/orgs/{orgId}/agent-types`
 
 Returns list of agent types used in the organization (for filter dropdowns).
+
+**Response `200 OK`:**
+
+```json
+{
+  "agent_types": [
+    {
+      "slug": "code_review",
+      "display_name": "Code Review Agent"
+    },
+    {
+      "slug": "test_generation",
+      "display_name": "Test Generation Agent"
+    }
+  ]
+}
+```
+
+**Authorization:** Any authenticated user in the organization.
+
+---
+
+#### `GET /api/v1/orgs/{orgId}/users`
+
+Returns list of users in the organization (for filter dropdowns).
+
+**Response `200 OK`:**
+
+```json
+{
+  "users": [
+    {
+      "user_id": "user-uuid-1",
+      "display_name": "Alice Chen",
+      "email": "alice@example.com"
+    },
+    {
+      "user_id": "user-uuid-2",
+      "display_name": "Bob Smith",
+      "email": "bob@example.com"
+    }
+  ]
+}
+```
+
+**Authorization:** `ORG_ADMIN` only.
+
+> **Note:** The reference data endpoints (`/teams`, `/agent-types`, `/users`) use explicit JSON key names (snake_case) via `Map` responses, unlike the DTO-based analytics endpoints which use camelCase.
+
+---
 
 ## 5. Error Codes
 
