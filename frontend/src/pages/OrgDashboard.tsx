@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/client';
 import MetricCard from '../components/MetricCard';
@@ -139,16 +139,21 @@ export default function OrgDashboard() {
         {byAgentType && byAgentType.agentTypes.length > 0 && (
           <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-sm">
             <h2 className="text-lg font-semibold text-slate-800 mb-4">Usage by Agent Type</h2>
-            <ResponsiveContainer width="100%" height={250}>
+            <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie data={byAgentType.agentTypes} dataKey="totalRuns" nameKey="displayName"
-                     cx="50%" cy="50%" outerRadius={90} label={({ displayName, percent }) =>
-                       `${displayName} (${(percent * 100).toFixed(0)}%)`}>
+                     cx="50%" cy="45%" outerRadius={80}>
                   {byAgentType.agentTypes.map((_, i) => (
                     <Cell key={i} fill={COLORS[i % COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip />
+                <Legend
+                  verticalAlign="bottom"
+                  layout="horizontal"
+                  wrapperStyle={{ paddingTop: 8, fontSize: '12px', overflowWrap: 'break-word' }}
+                  formatter={(value: string) => <span style={{ color: '#475569' }}>{value}</span>}
+                />
               </PieChart>
             </ResponsiveContainer>
             <table className="w-full mt-4 text-sm">
