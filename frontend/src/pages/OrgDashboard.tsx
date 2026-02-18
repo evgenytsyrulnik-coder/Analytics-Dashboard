@@ -70,7 +70,7 @@ export default function OrgDashboard() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
-        <h1 className="text-2xl font-bold text-slate-900">Organization Analytics</h1>
+        <h1 className="text-2xl font-bold text-slate-900">{user?.orgName ?? 'Organization'} Analytics</h1>
         <div className="flex items-center gap-4">
           <DateRangeSelector from={from} to={to} onChange={(f, t) => { setFrom(f); setTo(t); }} />
           <button onClick={fetchData} className="px-3 py-1.5 text-sm bg-slate-100 rounded-md hover:bg-slate-200">

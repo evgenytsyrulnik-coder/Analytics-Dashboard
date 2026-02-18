@@ -7,6 +7,7 @@ public record LoginResponse(
     String token,
     UUID userId,
     UUID orgId,
+    String orgName,
     String email,
     String displayName,
     String role,

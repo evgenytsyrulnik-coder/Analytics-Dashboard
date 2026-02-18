@@ -33,6 +33,7 @@ export default function LoginPage() {
     { email: 'admin@acme.com', role: 'ORG_ADMIN', name: 'Alice Chen' },
     { email: 'lead@acme.com', role: 'TEAM_LEAD', name: 'Bob Martinez' },
     { email: 'member@acme.com', role: 'MEMBER', name: 'Carol Johnson' },
+    { email: 'admin2@globex.com', role: 'ORG_ADMIN', name: 'Edward Kim' },
   ];
 
   return (

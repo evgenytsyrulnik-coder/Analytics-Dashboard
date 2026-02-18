@@ -1,8 +1,10 @@
 package com.analytics.dashboard.controller;
 
 import com.analytics.dashboard.config.JwtUtil;
+import com.analytics.dashboard.entity.Organization;
 import com.analytics.dashboard.entity.Team;
 import com.analytics.dashboard.entity.User;
+import com.analytics.dashboard.repository.OrganizationRepository;
 import com.analytics.dashboard.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,6 +30,8 @@ class AuthControllerTest {
     @Mock
     private UserRepository userRepository;
     @Mock
+    private OrganizationRepository organizationRepository;
+    @Mock
     private PasswordEncoder passwordEncoder;
     @Mock
     private JwtUtil jwtUtil;
@@ -48,6 +52,8 @@ class AuthControllerTest {
         testUser = new User(userId, orgId, "ext-1", "admin@test.com", "Admin User", "$2a$10$hash", "ORG_ADMIN");
         Team team = new Team(teamId, orgId, "ext-t1", "Engineering");
         testUser.setTeams(Set.of(team));
+        Organization org = new Organization(orgId, "ext-org", "Test Org");
+        lenient().when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
     }
 
     @Test
@@ -65,6 +71,7 @@ class AuthControllerTest {
         assertThat(body.token()).isEqualTo("jwt-token");
         assertThat(body.userId()).isEqualTo(userId);
         assertThat(body.orgId()).isEqualTo(orgId);
+        assertThat(body.orgName()).isEqualTo("Test Org");
         assertThat(body.email()).isEqualTo("admin@test.com");
         assertThat(body.displayName()).isEqualTo("Admin User");
         assertThat(body.role()).isEqualTo("ORG_ADMIN");

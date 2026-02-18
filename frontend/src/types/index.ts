@@ -2,6 +2,7 @@ export interface LoginResponse {
   token: string;
   userId: string;
   orgId: string;
+  orgName: string;
   email: string;
   displayName: string;
   role: 'ORG_ADMIN' | 'TEAM_LEAD' | 'MEMBER';
@@ -98,6 +99,7 @@ export interface UserMetric {
 
 export interface UserSummary {
   userId: string;
+  displayName: string;
   period: { from: string; to: string };
   totalRuns: number;
   succeededRuns: number;
