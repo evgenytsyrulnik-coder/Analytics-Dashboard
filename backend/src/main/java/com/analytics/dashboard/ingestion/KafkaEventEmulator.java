@@ -33,18 +33,32 @@ public class KafkaEventEmulator {
 
     private static final Logger log = LoggerFactory.getLogger(KafkaEventEmulator.class);
 
+    private static final String[] MODELS = {"claude-sonnet-4", "claude-opus-4", "claude-haiku-3.5"};
+    private static final String[] MODEL_VERSIONS = {"20250514", "20250620", "20250301"};
+    private static final String[] STATUSES = {
+            "SUCCEEDED", "SUCCEEDED", "SUCCEEDED", "SUCCEEDED",
+            "SUCCEEDED", "SUCCEEDED", "SUCCEEDED", "FAILED", "CANCELLED"
+    };
+    private static final String[] ERROR_CATEGORIES = {
+            "CONTEXT_LENGTH_EXCEEDED", "TIMEOUT", "RATE_LIMIT",
+            "INTERNAL_ERROR", "INVALID_INPUT"
+    };
+
+    private static final double INPUT_COST_PER_TOKEN = 0.000003;
+    private static final double OUTPUT_COST_PER_TOKEN = 0.000015;
+    private static final int MIN_INPUT_TOKENS = 10_000;
+    private static final int INPUT_TOKEN_RANGE = 500_000;
+    private static final int MIN_OUTPUT_TOKENS = 5_000;
+    private static final int OUTPUT_TOKEN_RANGE = 200_000;
+    private static final int MIN_DURATION_MS = 5_000;
+    private static final int DURATION_RANGE_MS = 180_000;
+    private static final int MAX_START_OFFSET_MINUTES = 120;
+
     private final AgentRunRepository agentRunRepository;
     private final UserRepository userRepository;
     private final TeamRepository teamRepository;
     private final AgentTypeRepository agentTypeRepository;
     private final Random random = new Random();
-
-    private static final String[] MODELS = {"claude-sonnet-4", "claude-opus-4", "claude-haiku-3.5"};
-    private static final String[] MODEL_VERSIONS = {"20250514", "20250620", "20250301"};
-    private static final String[] STATUSES = {"SUCCEEDED", "SUCCEEDED", "SUCCEEDED", "SUCCEEDED",
-            "SUCCEEDED", "SUCCEEDED", "SUCCEEDED", "FAILED", "CANCELLED"};
-    private static final String[] ERROR_CATEGORIES = {"CONTEXT_LENGTH_EXCEEDED", "TIMEOUT", "RATE_LIMIT",
-            "INTERNAL_ERROR", "INVALID_INPUT"};
 
     @Value("${app.kafka-emulator.batch-size:5}")
     private int batchSize;
@@ -72,56 +86,71 @@ public class KafkaEventEmulator {
         log.info("Kafka emulator: generating {} agent run events", batchSize);
 
         for (int i = 0; i < batchSize; i++) {
-            User user = users.get(random.nextInt(users.size()));
-            Team team = teams.stream()
-                    .filter(t -> user.getTeams().stream().anyMatch(ut -> ut.getId().equals(t.getId())))
-                    .findFirst()
-                    .orElse(teams.get(random.nextInt(teams.size())));
-            AgentType agentType = agentTypes.get(random.nextInt(agentTypes.size()));
-
-            AgentRun run = new AgentRun();
-            run.setId(UUID.randomUUID());
-            run.setOrgId(user.getOrgId());
-            run.setTeamId(team.getId());
-            run.setUserId(user.getId());
-            run.setAgentTypeSlug(agentType.getSlug());
-
-            int modelIdx = random.nextInt(MODELS.length);
-            run.setModelName(MODELS[modelIdx]);
-            run.setModelVersion(MODEL_VERSIONS[modelIdx]);
-
-            String status = STATUSES[random.nextInt(STATUSES.length)];
-            run.setStatus(status);
-
-            // Random start time within the last 2 hours
-            Instant startedAt = Instant.now().minus(random.nextInt(120), ChronoUnit.MINUTES);
-            run.setStartedAt(startedAt);
-
-            long durationMs = 5000 + random.nextInt(180000); // 5s to 185s
-            run.setDurationMs(durationMs);
-            run.setFinishedAt(startedAt.plusMillis(durationMs));
-
-            long inputTokens = 10000 + random.nextInt(500000);
-            long outputTokens = 5000 + random.nextInt(200000);
-            run.setInputTokens(inputTokens);
-            run.setOutputTokens(outputTokens);
-            run.setTotalTokens(inputTokens + outputTokens);
-
-            BigDecimal inputCost = BigDecimal.valueOf(inputTokens * 0.000003).setScale(6, RoundingMode.HALF_UP);
-            BigDecimal outputCost = BigDecimal.valueOf(outputTokens * 0.000015).setScale(6, RoundingMode.HALF_UP);
-            run.setInputCost(inputCost);
-            run.setOutputCost(outputCost);
-            run.setTotalCost(inputCost.add(outputCost));
-
-            if ("FAILED".equals(status)) {
-                run.setErrorCategory(ERROR_CATEGORIES[random.nextInt(ERROR_CATEGORIES.length)]);
-                run.setErrorMessage("Simulated error: " + run.getErrorCategory());
-            }
-
-            run.setCreatedAt(Instant.now());
+            AgentRun run = buildRandomRun(users, teams, agentTypes);
             agentRunRepository.save(run);
         }
 
         log.info("Kafka emulator: {} events ingested successfully", batchSize);
+    }
+
+    private AgentRun buildRandomRun(List<User> users, List<Team> teams, List<AgentType> agentTypes) {
+        User user = pickRandom(users);
+        Team team = findUserTeam(user, teams);
+        AgentType agentType = pickRandom(agentTypes);
+        String status = pickRandom(STATUSES);
+        int modelIdx = random.nextInt(MODELS.length);
+
+        AgentRun run = new AgentRun();
+        run.setId(UUID.randomUUID());
+        run.setOrgId(user.getOrgId());
+        run.setTeamId(team.getId());
+        run.setUserId(user.getId());
+        run.setAgentTypeSlug(agentType.getSlug());
+        run.setModelName(MODELS[modelIdx]);
+        run.setModelVersion(MODEL_VERSIONS[modelIdx]);
+        run.setStatus(status);
+
+        Instant startedAt = Instant.now().minus(random.nextInt(MAX_START_OFFSET_MINUTES), ChronoUnit.MINUTES);
+        run.setStartedAt(startedAt);
+
+        long durationMs = MIN_DURATION_MS + random.nextInt(DURATION_RANGE_MS);
+        run.setDurationMs(durationMs);
+        run.setFinishedAt(startedAt.plusMillis(durationMs));
+
+        long inputTokens = MIN_INPUT_TOKENS + random.nextInt(INPUT_TOKEN_RANGE);
+        long outputTokens = MIN_OUTPUT_TOKENS + random.nextInt(OUTPUT_TOKEN_RANGE);
+        run.setInputTokens(inputTokens);
+        run.setOutputTokens(outputTokens);
+        run.setTotalTokens(inputTokens + outputTokens);
+
+        BigDecimal inputCost = BigDecimal.valueOf(inputTokens * INPUT_COST_PER_TOKEN).setScale(6, RoundingMode.HALF_UP);
+        BigDecimal outputCost = BigDecimal.valueOf(outputTokens * OUTPUT_COST_PER_TOKEN).setScale(6, RoundingMode.HALF_UP);
+        run.setInputCost(inputCost);
+        run.setOutputCost(outputCost);
+        run.setTotalCost(inputCost.add(outputCost));
+
+        if ("FAILED".equals(status)) {
+            String errorCategory = pickRandom(ERROR_CATEGORIES);
+            run.setErrorCategory(errorCategory);
+            run.setErrorMessage("Simulated error: " + errorCategory);
+        }
+
+        run.setCreatedAt(Instant.now());
+        return run;
+    }
+
+    private Team findUserTeam(User user, List<Team> teams) {
+        return teams.stream()
+                .filter(t -> user.getTeams().stream().anyMatch(ut -> ut.getId().equals(t.getId())))
+                .findFirst()
+                .orElse(pickRandom(teams));
+    }
+
+    private <T> T pickRandom(List<T> items) {
+        return items.get(random.nextInt(items.size()));
+    }
+
+    private String pickRandom(String[] items) {
+        return items[random.nextInt(items.length)];
     }
 }
