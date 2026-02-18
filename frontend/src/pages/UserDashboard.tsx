@@ -76,7 +76,7 @@ export default function UserDashboard() {
           >
             &larr; Back
           </button>
-          <h1 className="text-2xl font-bold text-slate-900">User Analytics</h1>
+          <h1 className="text-2xl font-bold text-slate-900">{summary?.displayName ? `${summary.displayName} — Analytics` : 'User Analytics'}</h1>
         </div>
         <DateRangeSelector from={from} to={to} onChange={(f, t) => { setFrom(f); setTo(t); }} />
       </div>

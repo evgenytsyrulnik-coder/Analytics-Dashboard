@@ -31,8 +31,9 @@ export default function LoginPage() {
 
   const testUsers = [
     { email: 'admin@acme.com', role: 'ORG_ADMIN', name: 'Alice Chen' },
-    { email: 'lead@acme.com', role: 'TEAM_LEAD', name: 'Bob Martinez' },
-    { email: 'member@acme.com', role: 'MEMBER', name: 'Carol Johnson' },
+    { email: 'lead-platform@acme.com', role: 'TEAM_LEAD', name: 'Raj Patel' },
+    { email: 'member1@acme.com', role: 'MEMBER', name: 'Liam Brown' },
+    { email: 'admin2@globex.com', role: 'ORG_ADMIN', name: 'Edward Kim' },
   ];
 
   return (

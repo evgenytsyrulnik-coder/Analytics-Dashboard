@@ -62,12 +62,17 @@ public class AnalyticsService {
         List<AgentRun> runs = agentRunRepository.findUserFiltered(userId, range.from(), range.to(), agentType, status);
         RunAggregates agg = RunAggregates.of(runs);
 
+        String displayName = userRepository.findById(userId)
+                .map(User::getDisplayName)
+                .orElse("Unknown");
+
         List<AgentRun> orgRuns = agentRunRepository.findFiltered(orgId, range.from(), range.to(), null, null, null);
         int rank = computeUserRank(userId, orgRuns);
         int teamSize = countDistinctUsers(orgRuns);
 
         return new UserSummaryResponse(
                 userId,
+                displayName,
                 new AnalyticsSummaryResponse.PeriodRange(from, to),
                 agg.totalRuns(), agg.succeeded(), agg.failed(), agg.totalTokens(),
                 agg.formattedCost(),

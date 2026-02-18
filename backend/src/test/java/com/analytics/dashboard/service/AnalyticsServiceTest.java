@@ -284,6 +284,9 @@ class AnalyticsServiceTest {
 
         @Test
         void returnsCorrectUserSummary() {
+            User user = new User(USER_ID_1, ORG_ID, "ext-u1", "user1@test.com", "Alice Chen", "hash", "MEMBER");
+            when(userRepository.findById(USER_ID_1)).thenReturn(Optional.of(user));
+
             List<AgentRun> userRuns = List.of(
                     createSucceededRun(TEAM_ID_1, USER_ID_1, 1000L, new BigDecimal("0.10"), 5000L),
                     createFailedRun(TEAM_ID_1, USER_ID_1)
@@ -302,6 +305,7 @@ class AnalyticsServiceTest {
             UserSummaryResponse result = analyticsService.getUserSummary(USER_ID_1, ORG_ID, FROM, TO, null, null);
 
             assertThat(result.userId()).isEqualTo(USER_ID_1);
+            assertThat(result.displayName()).isEqualTo("Alice Chen");
             assertThat(result.totalRuns()).isEqualTo(2);
             assertThat(result.succeededRuns()).isEqualTo(1);
             assertThat(result.failedRuns()).isEqualTo(1);
@@ -311,6 +315,9 @@ class AnalyticsServiceTest {
 
         @Test
         void calculatesRankCorrectly() {
+            User user = new User(USER_ID_1, ORG_ID, "ext-u1", "user1@test.com", "Alice Chen", "hash", "MEMBER");
+            when(userRepository.findById(USER_ID_1)).thenReturn(Optional.of(user));
+
             // User1 has 1 run, User2 has 3 runs => User1 ranks 2nd
             List<AgentRun> userRuns = List.of(
                     createSucceededRun(TEAM_ID_1, USER_ID_1, 1000L, new BigDecimal("0.10"), 5000L)
@@ -335,6 +342,7 @@ class AnalyticsServiceTest {
 
         @Test
         void handlesEmptyRunsForUser() {
+            when(userRepository.findById(USER_ID_1)).thenReturn(Optional.empty());
             when(agentRunRepository.findUserFiltered(eq(USER_ID_1), any(), any(), isNull(), isNull()))
                     .thenReturn(Collections.emptyList());
             when(agentRunRepository.findFiltered(eq(ORG_ID), any(), any(), isNull(), isNull(), isNull()))
@@ -343,6 +351,7 @@ class AnalyticsServiceTest {
             UserSummaryResponse result = analyticsService.getUserSummary(USER_ID_1, ORG_ID, FROM, TO, null, null);
 
             assertThat(result.totalRuns()).isZero();
+            assertThat(result.displayName()).isEqualTo("Unknown");
             assertThat(result.totalCost()).isEqualTo("0.000000");
             assertThat(result.avgDurationMs()).isZero();
         }

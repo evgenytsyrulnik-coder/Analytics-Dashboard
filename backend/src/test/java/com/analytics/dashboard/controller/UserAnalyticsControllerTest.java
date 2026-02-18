@@ -48,7 +48,7 @@ class UserAnalyticsControllerTest {
         @Test
         void returnsOkWithUserSummary() {
             UserSummaryResponse summary = new UserSummaryResponse(
-                    USER_ID, new AnalyticsSummaryResponse.PeriodRange(FROM, TO),
+                    USER_ID, "Test User", new AnalyticsSummaryResponse.PeriodRange(FROM, TO),
                     5, 4, 1, 3000, "0.500000", 2000, 1, 5);
             when(analyticsService.getUserSummary(USER_ID, ORG_ID, FROM, TO, null, null))
                     .thenReturn(summary);
@@ -62,7 +62,7 @@ class UserAnalyticsControllerTest {
         @Test
         void passesFiltersToService() {
             UserSummaryResponse summary = new UserSummaryResponse(
-                    USER_ID, new AnalyticsSummaryResponse.PeriodRange(FROM, TO),
+                    USER_ID, "Test User", new AnalyticsSummaryResponse.PeriodRange(FROM, TO),
                     0, 0, 0, 0, "0.000000", 0, 0, 0);
             when(analyticsService.getUserSummary(USER_ID, ORG_ID, FROM, TO, "code-review", "SUCCEEDED"))
                     .thenReturn(summary);
@@ -75,7 +75,7 @@ class UserAnalyticsControllerTest {
         @Test
         void usesAuthContextForUserAndOrgId() {
             UserSummaryResponse summary = new UserSummaryResponse(
-                    USER_ID, new AnalyticsSummaryResponse.PeriodRange(FROM, TO),
+                    USER_ID, "Test User", new AnalyticsSummaryResponse.PeriodRange(FROM, TO),
                     0, 0, 0, 0, "0.000000", 0, 0, 0);
             when(analyticsService.getUserSummary(USER_ID, ORG_ID, FROM, TO, null, null))
                     .thenReturn(summary);

@@ -5,6 +5,7 @@ import com.analytics.dashboard.dto.LoginRequest;
 import com.analytics.dashboard.dto.LoginResponse;
 import com.analytics.dashboard.entity.Team;
 import com.analytics.dashboard.entity.User;
+import com.analytics.dashboard.repository.OrganizationRepository;
 import com.analytics.dashboard.repository.UserRepository;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -20,11 +21,14 @@ import java.util.UUID;
 public class AuthController {
 
     private final UserRepository userRepository;
+    private final OrganizationRepository organizationRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
 
-    public AuthController(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtUtil jwtUtil) {
+    public AuthController(UserRepository userRepository, OrganizationRepository organizationRepository,
+                          PasswordEncoder passwordEncoder, JwtUtil jwtUtil) {
         this.userRepository = userRepository;
+        this.organizationRepository = organizationRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
     }
@@ -41,8 +45,12 @@ public class AuthController {
                             .map(t -> new LoginResponse.TeamInfo(t.getId(), t.getName()))
                             .toList();
 
+                    String orgName = organizationRepository.findById(user.getOrgId())
+                            .map(org -> org.getName())
+                            .orElse("Unknown");
+
                     return ResponseEntity.ok(new LoginResponse(
-                            token, user.getId(), user.getOrgId(),
+                            token, user.getId(), user.getOrgId(), orgName,
                             user.getEmail(), user.getDisplayName(),
                             user.getRole(), teamInfos
                     ));
