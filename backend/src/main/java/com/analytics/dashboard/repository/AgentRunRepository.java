@@ -51,4 +51,20 @@ public interface AgentRunRepository extends JpaRepository<AgentRun, UUID> {
                                     @Param("to") Instant to,
                                     @Param("agentType") String agentType,
                                     @Param("status") String status);
+
+    @Query("SELECT ar FROM AgentRun ar WHERE ar.orgId = :orgId AND ar.startedAt BETWEEN :from AND :to " +
+           "AND (:teamId IS NULL OR ar.teamId = :teamId) " +
+           "AND (:userId IS NULL OR ar.userId = :userId) " +
+           "AND (:agentType IS NULL OR ar.agentTypeSlug = :agentType) " +
+           "AND (:filterByStatus = false OR ar.status IN :statuses) " +
+           "ORDER BY ar.startedAt DESC")
+    Page<AgentRun> findOrgFilteredPaged(@Param("orgId") UUID orgId,
+                                         @Param("from") Instant from,
+                                         @Param("to") Instant to,
+                                         @Param("teamId") UUID teamId,
+                                         @Param("userId") UUID userId,
+                                         @Param("agentType") String agentType,
+                                         @Param("filterByStatus") boolean filterByStatus,
+                                         @Param("statuses") List<String> statuses,
+                                         Pageable pageable);
 }

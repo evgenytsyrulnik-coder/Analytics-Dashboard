@@ -4,9 +4,11 @@ import com.analytics.dashboard.config.AuthContext;
 import com.analytics.dashboard.dto.*;
 import com.analytics.dashboard.entity.AgentType;
 import com.analytics.dashboard.entity.Team;
+import com.analytics.dashboard.entity.User;
 import com.analytics.dashboard.repository.AgentTypeRepository;
 import com.analytics.dashboard.repository.BudgetRepository;
 import com.analytics.dashboard.repository.TeamRepository;
+import com.analytics.dashboard.repository.UserRepository;
 import com.analytics.dashboard.service.AnalyticsService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -22,17 +24,20 @@ public class OrgAnalyticsController {
 
     private final AnalyticsService analyticsService;
     private final TeamRepository teamRepository;
+    private final UserRepository userRepository;
     private final AgentTypeRepository agentTypeRepository;
     private final BudgetRepository budgetRepository;
     private final AuthContext authContext;
 
     public OrgAnalyticsController(AnalyticsService analyticsService,
                                    TeamRepository teamRepository,
+                                   UserRepository userRepository,
                                    AgentTypeRepository agentTypeRepository,
                                    BudgetRepository budgetRepository,
                                    AuthContext authContext) {
         this.analyticsService = analyticsService;
         this.teamRepository = teamRepository;
+        this.userRepository = userRepository;
         this.agentTypeRepository = agentTypeRepository;
         this.budgetRepository = budgetRepository;
         this.authContext = authContext;
@@ -95,6 +100,35 @@ public class OrgAnalyticsController {
                                           @RequestParam(required = false, defaultValue = "10") int limit) {
         validateOrg(orgId);
         return ResponseEntity.ok(analyticsService.getTopUsers(orgId, from, to, team_id, sort_by, Math.min(limit, 50)));
+    }
+
+    @GetMapping("/runs")
+    @PreAuthorize("hasRole('ORG_ADMIN')")
+    public ResponseEntity<?> getOrgRuns(@PathVariable UUID orgId,
+                                         @RequestParam String from,
+                                         @RequestParam String to,
+                                         @RequestParam(required = false) UUID team_id,
+                                         @RequestParam(required = false) UUID user_id,
+                                         @RequestParam(required = false) List<String> status,
+                                         @RequestParam(required = false) String agent_type,
+                                         @RequestParam(required = false, defaultValue = "0") int page,
+                                         @RequestParam(required = false, defaultValue = "25") int size) {
+        validateOrg(orgId);
+        return ResponseEntity.ok(analyticsService.getOrgRuns(
+                orgId, from, to, team_id, user_id, status, agent_type, page, Math.min(size, 100)));
+    }
+
+    @GetMapping("/users")
+    @PreAuthorize("hasRole('ORG_ADMIN')")
+    public ResponseEntity<?> getUsers(@PathVariable UUID orgId) {
+        validateOrg(orgId);
+        List<User> users = userRepository.findByOrgId(orgId);
+        return ResponseEntity.ok(Map.of("users",
+                users.stream().map(u -> Map.of(
+                        "user_id", u.getId(),
+                        "display_name", u.getDisplayName(),
+                        "email", u.getEmail()
+                )).toList()));
     }
 
     @GetMapping("/teams")

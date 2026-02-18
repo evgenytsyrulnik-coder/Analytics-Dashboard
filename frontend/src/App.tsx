@@ -7,6 +7,7 @@ import TeamDashboard from './pages/TeamDashboard';
 import PersonalDashboard from './pages/PersonalDashboard';
 import UserDashboard from './pages/UserDashboard';
 import RunDetail from './pages/RunDetail';
+import RunsListPage from './pages/RunsListPage';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -46,6 +47,7 @@ export default function App() {
         }
       >
         <Route path="/org" element={<OrgDashboard />} />
+        <Route path="/org/runs" element={<RunsListPage />} />
         <Route path="/teams/:teamId" element={<TeamDashboard />} />
         <Route path="/me" element={<PersonalDashboard />} />
         <Route path="/users/:userId" element={<UserDashboard />} />
