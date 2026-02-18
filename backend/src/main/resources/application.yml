@@ -28,6 +28,19 @@ spring:
     default-property-inclusion: non_null
 
 app:
+  auth:
+    # Authentication provider: 'password' for local dev, 'oidc' for external identity provider
+    provider: password
+    oidc:
+      # issuer-uri: https://login.microsoftonline.com/{tenant}/v2.0
+      # jwks-uri: https://login.microsoftonline.com/{tenant}/discovery/v2.0/keys
+      # client-id: your-client-id
+      # audience: your-client-id
+      # claims:
+      #   user-id: sub
+      #   roles: roles
+      #   org-id: org_id
+      #   teams: teams
   jwt:
     secret: analytics-dashboard-dev-secret-key-minimum-256-bits-long-for-hs256
     expiration-ms: 86400000

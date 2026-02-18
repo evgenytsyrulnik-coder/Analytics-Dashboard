@@ -21,9 +21,17 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(JwtAuthFilter.class);
     private final JwtUtil jwtUtil;
+    private final IdentityProviderConfig idpConfig;
 
-    public JwtAuthFilter(JwtUtil jwtUtil) {
+    public JwtAuthFilter(JwtUtil jwtUtil, IdentityProviderConfig idpConfig) {
         this.jwtUtil = jwtUtil;
+        this.idpConfig = idpConfig;
+    }
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        // In OIDC mode, Spring's OAuth2 Resource Server filter handles JWT validation
+        return idpConfig.isOidc();
     }
 
     @Override

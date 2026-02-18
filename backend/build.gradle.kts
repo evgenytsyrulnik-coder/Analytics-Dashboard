@@ -31,6 +31,9 @@ dependencies {
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.5")
     runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.12.5")
 
+    // OAuth2 Resource Server — used for OIDC/IdP JWT validation via JWKS
+    implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
+
     // Jackson
     implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310")
 
