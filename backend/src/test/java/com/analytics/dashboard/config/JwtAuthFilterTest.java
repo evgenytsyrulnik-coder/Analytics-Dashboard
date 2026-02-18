@@ -1,7 +1,6 @@
 package com.analytics.dashboard.config;
 
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.impl.DefaultClaims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import org.junit.jupiter.api.AfterEach;
@@ -52,8 +51,7 @@ class JwtAuthFilterTest {
     void setsAuthenticationForValidToken() throws ServletException, IOException {
         String token = "valid.jwt.token";
         request.addHeader("Authorization", "Bearer " + token);
-        Claims claims = new DefaultClaims();
-        claims.setSubject("user-id");
+        Claims claims = mock(Claims.class);
 
         when(jwtUtil.parseToken(token)).thenReturn(claims);
         when(jwtUtil.getRoles(claims)).thenReturn(List.of("ORG_ADMIN"));
@@ -71,7 +69,7 @@ class JwtAuthFilterTest {
     void setsMultipleAuthorities() throws ServletException, IOException {
         String token = "valid.jwt.token";
         request.addHeader("Authorization", "Bearer " + token);
-        Claims claims = new DefaultClaims();
+        Claims claims = mock(Claims.class);
 
         when(jwtUtil.parseToken(token)).thenReturn(claims);
         when(jwtUtil.getRoles(claims)).thenReturn(List.of("ORG_ADMIN", "TEAM_LEAD"));
@@ -116,7 +114,7 @@ class JwtAuthFilterTest {
     void extractsTokenAfterBearerPrefix() throws ServletException, IOException {
         String token = "my.actual.token";
         request.addHeader("Authorization", "Bearer " + token);
-        Claims claims = new DefaultClaims();
+        Claims claims = mock(Claims.class);
 
         when(jwtUtil.parseToken(token)).thenReturn(claims);
         when(jwtUtil.getRoles(claims)).thenReturn(List.of("MEMBER"));
@@ -130,7 +128,7 @@ class JwtAuthFilterTest {
     void prefixesRolesWithROLE() throws ServletException, IOException {
         String token = "valid.jwt.token";
         request.addHeader("Authorization", "Bearer " + token);
-        Claims claims = new DefaultClaims();
+        Claims claims = mock(Claims.class);
 
         when(jwtUtil.parseToken(token)).thenReturn(claims);
         when(jwtUtil.getRoles(claims)).thenReturn(List.of("MEMBER"));
