@@ -4,17 +4,24 @@ import { loginAs, TEST_ACCOUNTS } from './fixtures/auth';
 test.describe('Organization Dashboard (AT-ORG-001 to AT-ORG-025)', () => {
   test.beforeEach(async ({ page }) => {
     await loginAs(page, TEST_ACCOUNTS.orgAdmin);
+    // Explicitly navigate to /org (in case we landed elsewhere)
+    await page.goto('/org', { waitUntil: 'networkidle' });
     await page.waitForURL('**/org', { timeout: 15_000 });
+    // Wait for org-specific content to ensure we're on the right page (not team dashboard)
+    await expect(page.getByText('Usage by Team')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('Top Users by Cost')).toBeVisible({ timeout: 15_000 });
     // Wait for the dashboard data to load (metric cards appear)
-    await expect(page.getByText('Total Runs')).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('.grid.grid-cols-2').first().getByText('Total Runs')).toBeVisible({ timeout: 15_000 });
   });
 
   // AT-ORG-001: Aggregate KPI metric cards are visible
   test('AT-ORG-001: view aggregate KPIs — metric cards visible', async ({ page }) => {
-    await expect(page.getByText('Total Runs')).toBeVisible();
-    await expect(page.getByText('Success Rate')).toBeVisible();
-    await expect(page.getByText('Total Tokens')).toBeVisible();
-    await expect(page.getByText('Total Cost')).toBeVisible();
+    // Check metric cards in the grid (not in tables)
+    const metricsGrid = page.locator('.grid.grid-cols-2').first();
+    await expect(metricsGrid.getByText('Total Runs')).toBeVisible();
+    await expect(metricsGrid.getByText('Success Rate')).toBeVisible();
+    await expect(metricsGrid.getByText('Total Tokens')).toBeVisible();
+    await expect(metricsGrid.getByText('Total Cost')).toBeVisible();
   });
 
   // AT-ORG-002: Time-series chart section visible
@@ -115,37 +122,37 @@ test.describe('Organization Dashboard (AT-ORG-001 to AT-ORG-025)', () => {
 
   // AT-ORG-012: Org name in page header
   test('AT-ORG-012: organization name appears in page header', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: /Analytics/ })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('heading', { name: /Analytics/, level: 2 }).or(page.getByRole('heading', { name: /Acme Corporation/ }))).toBeVisible({ timeout: 10_000 });
   });
 
   // AT-ORG-013: Team table has proper column headers
   test('AT-ORG-013: team table has proper column headers', async ({ page }) => {
     await expect(page.getByText('Usage by Team')).toBeVisible({ timeout: 10_000 });
-    const teamSection = page.locator('text=Usage by Team').locator('..').locator('..');
-    await expect(teamSection.locator('th', { hasText: 'Team' })).toBeVisible();
-    await expect(teamSection.locator('th', { hasText: 'Runs' })).toBeVisible();
-    await expect(teamSection.locator('th', { hasText: 'Cost' })).toBeVisible();
-    await expect(teamSection.locator('th', { hasText: 'Success Rate' })).toBeVisible();
+    const teamSection = page.getByText('Usage by Team').locator('..').locator('..');
+    await expect(teamSection.getByRole('columnheader', { name: 'Team', exact: true })).toBeVisible();
+    await expect(teamSection.getByRole('columnheader', { name: 'Runs', exact: true }).first()).toBeVisible();
+    await expect(teamSection.getByRole('columnheader', { name: 'Cost', exact: true }).first()).toBeVisible();
+    await expect(teamSection.getByRole('columnheader', { name: 'Success Rate', exact: true }).first()).toBeVisible();
   });
 
   // AT-ORG-014: Agent type table has proper column headers
   test('AT-ORG-014: agent type table has proper column headers', async ({ page }) => {
     await expect(page.getByText('Usage by Agent Type')).toBeVisible({ timeout: 10_000 });
-    const agentSection = page.locator('text=Usage by Agent Type').locator('..').locator('..');
-    await expect(agentSection.locator('th', { hasText: 'Agent Type' })).toBeVisible();
-    await expect(agentSection.locator('th', { hasText: 'Runs' })).toBeVisible();
-    await expect(agentSection.locator('th', { hasText: 'Cost' })).toBeVisible();
+    const agentSection = page.getByText('Usage by Agent Type').locator('..').locator('..');
+    await expect(agentSection.getByRole('columnheader', { name: 'Agent Type', exact: true })).toBeVisible();
+    await expect(agentSection.getByRole('columnheader', { name: 'Runs', exact: true }).first()).toBeVisible();
+    await expect(agentSection.getByRole('columnheader', { name: 'Cost', exact: true }).first()).toBeVisible();
   });
 
   // AT-ORG-015: Top users table has proper column headers
   test('AT-ORG-015: top users table has proper column headers', async ({ page }) => {
     await expect(page.getByText('Top Users by Cost')).toBeVisible({ timeout: 10_000 });
-    const topUsersSection = page.locator('text=Top Users by Cost').locator('..').locator('..');
-    await expect(topUsersSection.locator('th', { hasText: 'Rank' })).toBeVisible();
-    await expect(topUsersSection.locator('th', { hasText: 'Name' })).toBeVisible();
-    await expect(topUsersSection.locator('th', { hasText: 'Team' })).toBeVisible();
-    await expect(topUsersSection.locator('th', { hasText: 'Tokens' })).toBeVisible();
-    await expect(topUsersSection.locator('th', { hasText: 'Cost' })).toBeVisible();
+    const topUsersSection = page.getByText('Top Users by Cost').locator('..').locator('..');
+    await expect(topUsersSection.getByRole('columnheader', { name: 'Rank', exact: true })).toBeVisible();
+    await expect(topUsersSection.getByRole('columnheader', { name: 'Name', exact: true })).toBeVisible();
+    await expect(topUsersSection.getByRole('columnheader', { name: 'Team', exact: true }).first()).toBeVisible();
+    await expect(topUsersSection.getByRole('columnheader', { name: 'Tokens', exact: true }).first()).toBeVisible();
+    await expect(topUsersSection.getByRole('columnheader', { name: 'Cost', exact: true }).first()).toBeVisible();
   });
 
   // AT-ORG-016: Sidebar shows "Organization" nav link

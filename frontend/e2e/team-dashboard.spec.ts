@@ -6,17 +6,19 @@ test.describe('Team Dashboard (AT-TM-001 to AT-TM-011)', () => {
     test.beforeEach(async ({ page }) => {
       await loginAs(page, TEST_ACCOUNTS.teamLead);
       await page.waitForURL('**/teams/**', { timeout: 15_000 });
-      // Wait for team data to load
-      await expect(page.getByText('Total Runs')).toBeVisible({ timeout: 15_000 });
+      // Wait for team-specific content (not recharts tooltip)
+      const metricsGrid = page.locator('.grid.grid-cols-2').first();
+      await expect(metricsGrid.getByText('Total Runs')).toBeVisible({ timeout: 15_000 });
     });
 
     // AT-TM-001: View team KPIs — metric cards visible
     test('AT-TM-001: view team KPIs — metric cards visible', async ({ page }) => {
-      await expect(page.getByText('Total Runs')).toBeVisible();
-      await expect(page.getByText('Success Rate')).toBeVisible();
-      await expect(page.getByText('Failed Runs')).toBeVisible();
-      await expect(page.getByText('Total Tokens')).toBeVisible();
-      await expect(page.getByText('Total Cost')).toBeVisible();
+      const metricsGrid = page.locator('.grid.grid-cols-2').first();
+      await expect(metricsGrid.getByText('Total Runs')).toBeVisible();
+      await expect(metricsGrid.getByText('Success Rate')).toBeVisible();
+      await expect(metricsGrid.getByText('Failed Runs')).toBeVisible();
+      await expect(metricsGrid.getByText('Total Tokens')).toBeVisible();
+      await expect(metricsGrid.getByText('Total Cost')).toBeVisible();
     });
 
     // AT-TM-002: User breakdown table visible
@@ -90,7 +92,8 @@ test.describe('Team Dashboard (AT-TM-001 to AT-TM-011)', () => {
   test('AT-TM-010: ORG_ADMIN can view any team', async ({ page }) => {
     await loginAs(page, TEST_ACCOUNTS.orgAdmin);
     await page.waitForURL('**/org', { timeout: 15_000 });
-    await expect(page.getByText('Total Runs')).toBeVisible({ timeout: 15_000 });
+    const metricsGrid = page.locator('.grid.grid-cols-2').first();
+    await expect(metricsGrid.getByText('Total Runs')).toBeVisible({ timeout: 15_000 });
 
     // Navigate to "Usage by Team" section and click a team
     await expect(page.getByText('Usage by Team')).toBeVisible({ timeout: 10_000 });
@@ -103,7 +106,8 @@ test.describe('Team Dashboard (AT-TM-001 to AT-TM-011)', () => {
     expect(page.url()).toMatch(/\/teams\/[a-zA-Z0-9-]+/);
 
     // Team data should load successfully
-    await expect(page.getByText('Total Runs')).toBeVisible({ timeout: 15_000 });
+    const teamMetricsGrid = page.locator('.grid.grid-cols-2').first();
+    await expect(teamMetricsGrid.getByText('Total Runs')).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole('heading', { name: /Team:/ })).toBeVisible({ timeout: 10_000 });
   });
 
