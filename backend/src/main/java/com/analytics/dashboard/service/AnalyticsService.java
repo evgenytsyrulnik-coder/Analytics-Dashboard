@@ -9,6 +9,8 @@ import com.analytics.dashboard.repository.AgentRunRepository;
 import com.analytics.dashboard.repository.AgentTypeRepository;
 import com.analytics.dashboard.repository.TeamRepository;
 import com.analytics.dashboard.repository.UserRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -254,6 +256,49 @@ public class AnalyticsService {
                 .toList();
 
         return new RunListResponse(summaries, null, hasMore);
+    }
+
+    public PagedRunListResponse getOrgRuns(UUID orgId, String from, String to,
+                                             UUID teamId, UUID userId, List<String> statuses,
+                                             String agentType, int page, int size) {
+        DateRange range = DateRange.of(from, to);
+        boolean filterByStatus = statuses != null && !statuses.isEmpty();
+        Page<AgentRun> result = agentRunRepository.findOrgFilteredPaged(
+                orgId, range.from(), range.to(), teamId, userId, agentType,
+                filterByStatus, filterByStatus ? statuses : List.of(),
+                PageRequest.of(page, size));
+
+        Map<UUID, User> users = userRepository.findByOrgId(orgId).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+        Map<UUID, Team> teams = teamRepository.findByOrgId(orgId).stream()
+                .collect(Collectors.toMap(Team::getId, t -> t));
+        Map<String, AgentType> types = agentTypeRepository.findByOrgId(orgId).stream()
+                .collect(Collectors.toMap(AgentType::getSlug, t -> t));
+
+        List<PagedRunListResponse.RunItem> items = result.getContent().stream()
+                .map(r -> {
+                    User u = users.get(r.getUserId());
+                    Team t = r.getTeamId() != null ? teams.get(r.getTeamId()) : null;
+                    AgentType at = types.get(r.getAgentTypeSlug());
+                    return new PagedRunListResponse.RunItem(
+                            r.getId(),
+                            r.getUserId(),
+                            u != null ? u.getDisplayName() : "Unknown",
+                            r.getTeamId(),
+                            t != null ? t.getName() : "Unknown",
+                            r.getAgentTypeSlug(),
+                            at != null ? at.getDisplayName() : r.getAgentTypeSlug(),
+                            r.getStatus(),
+                            r.getStartedAt().toString(),
+                            r.getFinishedAt() != null ? r.getFinishedAt().toString() : null,
+                            r.getDurationMs() != null ? r.getDurationMs() : 0,
+                            r.getTotalTokens(),
+                            formatCost(r.getTotalCost())
+                    );
+                })
+                .toList();
+
+        return new PagedRunListResponse(items, page, result.getTotalPages(), result.getTotalElements());
     }
 
     public RunDetailResponse getRunDetail(UUID runId) {

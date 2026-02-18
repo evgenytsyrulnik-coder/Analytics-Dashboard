@@ -96,15 +96,49 @@ export default function OrgDashboard() {
       {timeseries && timeseries.dataPoints.length > 0 && (
         <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-800 mb-4">Daily Runs</h2>
+          <p className="text-xs text-slate-400 mb-2">Click on a data point to view the list of runs</p>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={timeseries.dataPoints}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="timestamp" tickFormatter={(v) => v.split('T')[0].slice(5)} />
               <YAxis />
               <Tooltip labelFormatter={(v) => v.split('T')[0]} />
-              <Line type="monotone" dataKey="totalRuns" stroke="#3b82f6" name="Total Runs" strokeWidth={2} />
-              <Line type="monotone" dataKey="succeededRuns" stroke="#10b981" name="Succeeded" strokeWidth={2} />
-              <Line type="monotone" dataKey="failedRuns" stroke="#ef4444" name="Failed" strokeWidth={2} />
+              <Line
+                type="monotone" dataKey="totalRuns" stroke="#3b82f6" name="Total Runs" strokeWidth={2}
+                activeDot={(props: any) => (
+                  <circle cx={props.cx} cy={props.cy} r={6} fill="#3b82f6" stroke="white" strokeWidth={2}
+                    cursor="pointer"
+                    onClick={() => {
+                      const date = props.payload.timestamp.split('T')[0];
+                      navigate(`/org/runs?from=${date}&to=${date}`);
+                    }}
+                  />
+                )}
+              />
+              <Line
+                type="monotone" dataKey="succeededRuns" stroke="#10b981" name="Succeeded" strokeWidth={2}
+                activeDot={(props: any) => (
+                  <circle cx={props.cx} cy={props.cy} r={6} fill="#10b981" stroke="white" strokeWidth={2}
+                    cursor="pointer"
+                    onClick={() => {
+                      const date = props.payload.timestamp.split('T')[0];
+                      navigate(`/org/runs?from=${date}&to=${date}&status=SUCCEEDED`);
+                    }}
+                  />
+                )}
+              />
+              <Line
+                type="monotone" dataKey="failedRuns" stroke="#ef4444" name="Failed" strokeWidth={2}
+                activeDot={(props: any) => (
+                  <circle cx={props.cx} cy={props.cy} r={6} fill="#ef4444" stroke="white" strokeWidth={2}
+                    cursor="pointer"
+                    onClick={() => {
+                      const date = props.payload.timestamp.split('T')[0];
+                      navigate(`/org/runs?from=${date}&to=${date}&status=FAILED`);
+                    }}
+                  />
+                )}
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>

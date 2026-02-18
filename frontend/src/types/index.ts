@@ -129,6 +129,35 @@ export interface RunSummary {
   totalCost: string;
 }
 
+export interface PagedRunList {
+  runs: OrgRunItem[];
+  page: number;
+  totalPages: number;
+  totalElements: number;
+}
+
+export interface OrgRunItem {
+  runId: string;
+  userId: string;
+  userName: string;
+  teamId: string | null;
+  teamName: string;
+  agentType: string;
+  agentTypeDisplayName: string;
+  status: string;
+  startedAt: string;
+  finishedAt: string | null;
+  durationMs: number;
+  totalTokens: number;
+  totalCost: string;
+}
+
+export interface OrgUser {
+  user_id: string;
+  display_name: string;
+  email: string;
+}
+
 export interface RunDetail {
   runId: string;
   orgId: string;
