@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts';
 import { useAuth } from '../context/AuthContext';
@@ -8,6 +8,7 @@ import DateRangeSelector from '../components/DateRangeSelector';
 import type { AnalyticsSummary, TimeseriesData, ByTeamData, ByAgentTypeData, TopUsersData } from '../types';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+const AUTO_REFRESH_INTERVAL = 15_000;
 
 export default function OrgDashboard() {
   const { user } = useAuth();
@@ -27,7 +28,7 @@ export default function OrgDashboard() {
 
   const orgId = user?.orgId;
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!orgId) return;
     setLoading(true);
     try {
@@ -49,9 +50,17 @@ export default function OrgDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [orgId, from, to]);
 
-  useEffect(() => { fetchData(); }, [orgId, from, to]);
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Auto-refresh
+  const fetchRef = useRef(fetchData);
+  fetchRef.current = fetchData;
+  useEffect(() => {
+    const id = setInterval(() => fetchRef.current(), AUTO_REFRESH_INTERVAL);
+    return () => clearInterval(id);
+  }, []);
 
   if (loading && !summary) {
     return <div className="text-slate-500">Loading organization analytics...</div>;

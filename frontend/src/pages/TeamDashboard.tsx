@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAuth } from '../context/AuthContext';
@@ -6,6 +6,8 @@ import api from '../api/client';
 import MetricCard from '../components/MetricCard';
 import DateRangeSelector from '../components/DateRangeSelector';
 import type { AnalyticsSummary, TimeseriesData, ByTeamData } from '../types';
+
+const AUTO_REFRESH_INTERVAL = 15_000;
 
 export default function TeamDashboard() {
   const { teamId } = useParams<{ teamId: string }>();
@@ -21,6 +23,7 @@ export default function TeamDashboard() {
   const [byUser, setByUser] = useState<ByTeamData | null>(null);
   const [loading, setLoading] = useState(true);
   const [resolvedTeamName, setResolvedTeamName] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
   // Try to get team name from user's teams first; fall back to API for ORG_ADMIN
   const localTeamName = user?.teams.find(t => t.teamId === teamId)?.teamName;
@@ -40,7 +43,7 @@ export default function TeamDashboard() {
 
   const canViewUserDashboard = user?.role === 'ORG_ADMIN' || user?.role === 'TEAM_LEAD';
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!teamId) return;
     setLoading(true);
     try {
@@ -52,14 +55,23 @@ export default function TeamDashboard() {
       setSummary(sumRes.data);
       setTimeseries(tsRes.data);
       setByUser(userRes.data);
+      setLastUpdated(new Date());
     } catch (err) {
       console.error('Failed to load team analytics', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [teamId, from, to]);
 
-  useEffect(() => { fetchData(); }, [teamId, from, to]);
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Auto-refresh
+  const fetchRef = useRef(fetchData);
+  fetchRef.current = fetchData;
+  useEffect(() => {
+    const id = setInterval(() => fetchRef.current(), AUTO_REFRESH_INTERVAL);
+    return () => clearInterval(id);
+  }, []);
 
   if (loading && !summary) {
     return <div className="text-slate-500">Loading team analytics...</div>;
@@ -69,8 +81,15 @@ export default function TeamDashboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <h1 className="text-2xl font-bold text-slate-900">Team: {teamName}</h1>
-        <DateRangeSelector from={from} to={to} onChange={(f, t) => { setFrom(f); setTo(t); }} />
+        <div className="flex items-center gap-4">
+          <DateRangeSelector from={from} to={to} onChange={(f, t) => { setFrom(f); setTo(t); }} />
+          <button onClick={fetchData} className="px-3 py-1.5 text-sm bg-slate-100 rounded-md hover:bg-slate-200">
+            Refresh
+          </button>
+        </div>
       </div>
+
+      <p className="text-xs text-slate-400">Last updated: {lastUpdated.toLocaleTimeString()}</p>
 
       {summary && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
