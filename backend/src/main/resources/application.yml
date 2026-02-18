@@ -17,6 +17,11 @@ spring:
       ddl-auto: none
     show-sql: false
     open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 50
+        order_inserts: true
   jackson:
     serialization:
       write-dates-as-timestamps: false
