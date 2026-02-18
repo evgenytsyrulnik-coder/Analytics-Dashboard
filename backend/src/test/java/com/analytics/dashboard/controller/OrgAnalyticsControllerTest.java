@@ -4,9 +4,11 @@ import com.analytics.dashboard.config.AuthContext;
 import com.analytics.dashboard.dto.*;
 import com.analytics.dashboard.entity.AgentType;
 import com.analytics.dashboard.entity.Team;
+import com.analytics.dashboard.entity.User;
 import com.analytics.dashboard.repository.AgentTypeRepository;
 import com.analytics.dashboard.repository.BudgetRepository;
 import com.analytics.dashboard.repository.TeamRepository;
+import com.analytics.dashboard.repository.UserRepository;
 import com.analytics.dashboard.service.AnalyticsService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -33,6 +35,8 @@ class OrgAnalyticsControllerTest {
     private TeamRepository teamRepository;
     @Mock
     private AgentTypeRepository agentTypeRepository;
+    @Mock
+    private UserRepository userRepository;
     @Mock
     private BudgetRepository budgetRepository;
     @Mock
@@ -172,6 +176,110 @@ class OrgAnalyticsControllerTest {
     }
 
     @Nested
+    class GetOrgRuns {
+
+        @Test
+        void returnsOkWithPagedRuns() {
+            PagedRunListResponse pagedResponse = new PagedRunListResponse(List.of(), 0, 1, 0);
+            when(analyticsService.getOrgRuns(ORG_ID, FROM, TO, null, null, null, null, 0, 25))
+                    .thenReturn(pagedResponse);
+
+            ResponseEntity<?> response = controller.getOrgRuns(ORG_ID, FROM, TO, null, null, null, null, 0, 25);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody()).isEqualTo(pagedResponse);
+        }
+
+        @Test
+        void passesAllFiltersToService() {
+            UUID teamId = UUID.randomUUID();
+            UUID userId = UUID.randomUUID();
+            List<String> statuses = List.of("SUCCEEDED", "FAILED");
+            PagedRunListResponse pagedResponse = new PagedRunListResponse(List.of(), 2, 5, 100);
+            when(analyticsService.getOrgRuns(ORG_ID, FROM, TO, teamId, userId, statuses, "code-review", 2, 25))
+                    .thenReturn(pagedResponse);
+
+            controller.getOrgRuns(ORG_ID, FROM, TO, teamId, userId, statuses, "code-review", 2, 25);
+
+            verify(analyticsService).getOrgRuns(ORG_ID, FROM, TO, teamId, userId, statuses, "code-review", 2, 25);
+        }
+
+        @Test
+        void capsSizeAt100() {
+            PagedRunListResponse pagedResponse = new PagedRunListResponse(List.of(), 0, 1, 0);
+            when(analyticsService.getOrgRuns(ORG_ID, FROM, TO, null, null, null, null, 0, 100))
+                    .thenReturn(pagedResponse);
+
+            controller.getOrgRuns(ORG_ID, FROM, TO, null, null, null, null, 0, 200);
+
+            verify(analyticsService).getOrgRuns(ORG_ID, FROM, TO, null, null, null, null, 0, 100);
+        }
+
+        @Test
+        void throwsSecurityExceptionForWrongOrg() {
+            UUID wrongOrgId = UUID.randomUUID();
+
+            assertThatThrownBy(() -> controller.getOrgRuns(wrongOrgId, FROM, TO, null, null, null, null, 0, 25))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("Access denied");
+        }
+    }
+
+    @Nested
+    class GetUsers {
+
+        @Test
+        void returnsUserList() {
+            UUID userId = UUID.randomUUID();
+            User user = new User(userId, ORG_ID, "ext-1", "user@test.com", "Test User", "hash", "MEMBER");
+            when(userRepository.findByOrgId(ORG_ID)).thenReturn(List.of(user));
+
+            ResponseEntity<?> response = controller.getUsers(ORG_ID);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        }
+
+        @Test
+        void returnsEmptyListWhenNoUsers() {
+            when(userRepository.findByOrgId(ORG_ID)).thenReturn(List.of());
+
+            ResponseEntity<?> response = controller.getUsers(ORG_ID);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            @SuppressWarnings("unchecked")
+            Map<String, List<?>> body = (Map<String, List<?>>) response.getBody();
+            assertThat(body).containsKey("users");
+            assertThat(body.get("users")).isEmpty();
+        }
+
+        @Test
+        void responseContainsUserFields() {
+            UUID userId = UUID.randomUUID();
+            User user = new User(userId, ORG_ID, "ext-1", "user@test.com", "Test User", "hash", "MEMBER");
+            when(userRepository.findByOrgId(ORG_ID)).thenReturn(List.of(user));
+
+            ResponseEntity<?> response = controller.getUsers(ORG_ID);
+
+            @SuppressWarnings("unchecked")
+            Map<String, List<Map<String, Object>>> body = (Map<String, List<Map<String, Object>>>) response.getBody();
+            assertThat(body.get("users")).hasSize(1);
+            Map<String, Object> userMap = body.get("users").get(0);
+            assertThat(userMap.get("user_id")).isEqualTo(userId);
+            assertThat(userMap.get("display_name")).isEqualTo("Test User");
+            assertThat(userMap.get("email")).isEqualTo("user@test.com");
+        }
+
+        @Test
+        void throwsSecurityExceptionForWrongOrg() {
+            UUID wrongOrgId = UUID.randomUUID();
+
+            assertThatThrownBy(() -> controller.getUsers(wrongOrgId))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("Access denied");
+        }
+    }
+
+    @Nested
     class GetTeams {
 
         @Test
@@ -237,6 +345,10 @@ class OrgAnalyticsControllerTest {
             assertThatThrownBy(() -> controller.getByAgentType(wrongOrgId, FROM, TO, null, null))
                     .isInstanceOf(SecurityException.class);
             assertThatThrownBy(() -> controller.getTopUsers(wrongOrgId, FROM, TO, null, "runs", 10))
+                    .isInstanceOf(SecurityException.class);
+            assertThatThrownBy(() -> controller.getOrgRuns(wrongOrgId, FROM, TO, null, null, null, null, 0, 25))
+                    .isInstanceOf(SecurityException.class);
+            assertThatThrownBy(() -> controller.getUsers(wrongOrgId))
                     .isInstanceOf(SecurityException.class);
             assertThatThrownBy(() -> controller.getTeams(wrongOrgId))
                     .isInstanceOf(SecurityException.class);

@@ -2,6 +2,9 @@ package com.analytics.dashboard.controller;
 
 import com.analytics.dashboard.config.AuthContext;
 import com.analytics.dashboard.dto.*;
+import com.analytics.dashboard.entity.Team;
+import com.analytics.dashboard.entity.User;
+import com.analytics.dashboard.repository.UserRepository;
 import com.analytics.dashboard.service.AnalyticsService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -26,6 +29,8 @@ class UserAnalyticsControllerTest {
     private AnalyticsService analyticsService;
     @Mock
     private AuthContext authContext;
+    @Mock
+    private UserRepository userRepository;
 
     @InjectMocks
     private UserAnalyticsController controller;
@@ -227,6 +232,275 @@ class UserAnalyticsControllerTest {
                     .isInstanceOf(ResponseStatusException.class)
                     .extracting(ex -> ((ResponseStatusException) ex).getStatusCode())
                     .isEqualTo(HttpStatus.FORBIDDEN);
+        }
+    }
+
+    @Nested
+    class GetUserSummaryByUserId {
+
+        private final UUID TARGET_USER_ID = UUID.randomUUID();
+
+        private User createTargetUser() {
+            User user = new User(TARGET_USER_ID, ORG_ID, "ext-t", "target@test.com", "Target User", "hash", "MEMBER");
+            user.setTeams(Set.of(new Team(TEAM_ID, ORG_ID, "ext-1", "Engineering")));
+            return user;
+        }
+
+        @Test
+        void returnsOkWhenOrgAdmin() {
+            User targetUser = createTargetUser();
+            when(userRepository.findById(TARGET_USER_ID)).thenReturn(Optional.of(targetUser));
+            when(authContext.isOrgAdmin()).thenReturn(true);
+            UserSummaryResponse summary = new UserSummaryResponse(
+                    TARGET_USER_ID, "Target User", new AnalyticsSummaryResponse.PeriodRange(FROM, TO),
+                    3, 2, 1, 2000, "0.300000", 3000, 1, 5);
+            when(analyticsService.getUserSummary(TARGET_USER_ID, ORG_ID, FROM, TO, null, null))
+                    .thenReturn(summary);
+
+            ResponseEntity<?> response = controller.getUserSummary(TARGET_USER_ID, FROM, TO, null, null);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody()).isEqualTo(summary);
+        }
+
+        @Test
+        void returnsOkWhenTeamLeadSharesTeam() {
+            User targetUser = createTargetUser();
+            when(userRepository.findById(TARGET_USER_ID)).thenReturn(Optional.of(targetUser));
+            when(authContext.isOrgAdmin()).thenReturn(false);
+            when(authContext.getTeamIds()).thenReturn(List.of(TEAM_ID));
+            UserSummaryResponse summary = new UserSummaryResponse(
+                    TARGET_USER_ID, "Target User", new AnalyticsSummaryResponse.PeriodRange(FROM, TO),
+                    3, 2, 1, 2000, "0.300000", 3000, 1, 5);
+            when(analyticsService.getUserSummary(TARGET_USER_ID, ORG_ID, FROM, TO, null, null))
+                    .thenReturn(summary);
+
+            ResponseEntity<?> response = controller.getUserSummary(TARGET_USER_ID, FROM, TO, null, null);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        }
+
+        @Test
+        void throwsForbiddenWhenTeamLeadDoesNotShareTeam() {
+            User targetUser = createTargetUser();
+            when(userRepository.findById(TARGET_USER_ID)).thenReturn(Optional.of(targetUser));
+            when(authContext.isOrgAdmin()).thenReturn(false);
+            when(authContext.getTeamIds()).thenReturn(List.of(UUID.randomUUID()));
+
+            assertThatThrownBy(() -> controller.getUserSummary(TARGET_USER_ID, FROM, TO, null, null))
+                    .isInstanceOf(ResponseStatusException.class)
+                    .extracting(ex -> ((ResponseStatusException) ex).getStatusCode())
+                    .isEqualTo(HttpStatus.FORBIDDEN);
+        }
+
+        @Test
+        void throwsForbiddenWhenUserInDifferentOrg() {
+            UUID differentOrgId = UUID.randomUUID();
+            User targetUser = new User(TARGET_USER_ID, differentOrgId, "ext-t", "target@test.com", "Target User", "hash", "MEMBER");
+            when(userRepository.findById(TARGET_USER_ID)).thenReturn(Optional.of(targetUser));
+
+            assertThatThrownBy(() -> controller.getUserSummary(TARGET_USER_ID, FROM, TO, null, null))
+                    .isInstanceOf(ResponseStatusException.class)
+                    .extracting(ex -> ((ResponseStatusException) ex).getStatusCode())
+                    .isEqualTo(HttpStatus.FORBIDDEN);
+        }
+
+        @Test
+        void throwsNotFoundWhenUserDoesNotExist() {
+            when(userRepository.findById(TARGET_USER_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> controller.getUserSummary(TARGET_USER_ID, FROM, TO, null, null))
+                    .isInstanceOf(ResponseStatusException.class)
+                    .extracting(ex -> ((ResponseStatusException) ex).getStatusCode())
+                    .isEqualTo(HttpStatus.NOT_FOUND);
+        }
+
+        @Test
+        void passesFiltersToService() {
+            User targetUser = createTargetUser();
+            when(userRepository.findById(TARGET_USER_ID)).thenReturn(Optional.of(targetUser));
+            when(authContext.isOrgAdmin()).thenReturn(true);
+            UserSummaryResponse summary = new UserSummaryResponse(
+                    TARGET_USER_ID, "Target User", new AnalyticsSummaryResponse.PeriodRange(FROM, TO),
+                    0, 0, 0, 0, "0.000000", 0, 0, 0);
+            when(analyticsService.getUserSummary(TARGET_USER_ID, ORG_ID, FROM, TO, "code-review", "SUCCEEDED"))
+                    .thenReturn(summary);
+
+            controller.getUserSummary(TARGET_USER_ID, FROM, TO, "code-review", "SUCCEEDED");
+
+            verify(analyticsService).getUserSummary(TARGET_USER_ID, ORG_ID, FROM, TO, "code-review", "SUCCEEDED");
+        }
+    }
+
+    @Nested
+    class GetUserTimeseriesByUserId {
+
+        private final UUID TARGET_USER_ID = UUID.randomUUID();
+
+        private User createTargetUser() {
+            User user = new User(TARGET_USER_ID, ORG_ID, "ext-t", "target@test.com", "Target User", "hash", "MEMBER");
+            user.setTeams(Set.of(new Team(TEAM_ID, ORG_ID, "ext-1", "Engineering")));
+            return user;
+        }
+
+        @Test
+        void returnsOkWhenOrgAdmin() {
+            User targetUser = createTargetUser();
+            when(userRepository.findById(TARGET_USER_ID)).thenReturn(Optional.of(targetUser));
+            when(authContext.isOrgAdmin()).thenReturn(true);
+            TimeseriesResponse timeseries = new TimeseriesResponse(null, "DAILY", List.of());
+            when(analyticsService.getUserTimeseries(TARGET_USER_ID, FROM, TO, null, null))
+                    .thenReturn(timeseries);
+
+            ResponseEntity<?> response = controller.getUserTimeseries(TARGET_USER_ID, FROM, TO, null, null);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody()).isEqualTo(timeseries);
+        }
+
+        @Test
+        void returnsOkWhenTeamLeadSharesTeam() {
+            User targetUser = createTargetUser();
+            when(userRepository.findById(TARGET_USER_ID)).thenReturn(Optional.of(targetUser));
+            when(authContext.isOrgAdmin()).thenReturn(false);
+            when(authContext.getTeamIds()).thenReturn(List.of(TEAM_ID));
+            TimeseriesResponse timeseries = new TimeseriesResponse(null, "DAILY", List.of());
+            when(analyticsService.getUserTimeseries(TARGET_USER_ID, FROM, TO, null, null))
+                    .thenReturn(timeseries);
+
+            ResponseEntity<?> response = controller.getUserTimeseries(TARGET_USER_ID, FROM, TO, null, null);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        }
+
+        @Test
+        void throwsForbiddenWhenTeamLeadDoesNotShareTeam() {
+            User targetUser = createTargetUser();
+            when(userRepository.findById(TARGET_USER_ID)).thenReturn(Optional.of(targetUser));
+            when(authContext.isOrgAdmin()).thenReturn(false);
+            when(authContext.getTeamIds()).thenReturn(List.of(UUID.randomUUID()));
+
+            assertThatThrownBy(() -> controller.getUserTimeseries(TARGET_USER_ID, FROM, TO, null, null))
+                    .isInstanceOf(ResponseStatusException.class)
+                    .extracting(ex -> ((ResponseStatusException) ex).getStatusCode())
+                    .isEqualTo(HttpStatus.FORBIDDEN);
+        }
+
+        @Test
+        void throwsNotFoundWhenUserDoesNotExist() {
+            when(userRepository.findById(TARGET_USER_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> controller.getUserTimeseries(TARGET_USER_ID, FROM, TO, null, null))
+                    .isInstanceOf(ResponseStatusException.class)
+                    .extracting(ex -> ((ResponseStatusException) ex).getStatusCode())
+                    .isEqualTo(HttpStatus.NOT_FOUND);
+        }
+
+        @Test
+        void passesFiltersToService() {
+            User targetUser = createTargetUser();
+            when(userRepository.findById(TARGET_USER_ID)).thenReturn(Optional.of(targetUser));
+            when(authContext.isOrgAdmin()).thenReturn(true);
+            TimeseriesResponse timeseries = new TimeseriesResponse(null, "DAILY", List.of());
+            when(analyticsService.getUserTimeseries(TARGET_USER_ID, FROM, TO, "test-gen", "FAILED"))
+                    .thenReturn(timeseries);
+
+            controller.getUserTimeseries(TARGET_USER_ID, FROM, TO, "test-gen", "FAILED");
+
+            verify(analyticsService).getUserTimeseries(TARGET_USER_ID, FROM, TO, "test-gen", "FAILED");
+        }
+    }
+
+    @Nested
+    class GetUserRunsByUserId {
+
+        private final UUID TARGET_USER_ID = UUID.randomUUID();
+
+        private User createTargetUser() {
+            User user = new User(TARGET_USER_ID, ORG_ID, "ext-t", "target@test.com", "Target User", "hash", "MEMBER");
+            user.setTeams(Set.of(new Team(TEAM_ID, ORG_ID, "ext-1", "Engineering")));
+            return user;
+        }
+
+        @Test
+        void returnsOkWhenOrgAdmin() {
+            User targetUser = createTargetUser();
+            when(userRepository.findById(TARGET_USER_ID)).thenReturn(Optional.of(targetUser));
+            when(authContext.isOrgAdmin()).thenReturn(true);
+            RunListResponse runList = new RunListResponse(List.of(), null, false);
+            when(analyticsService.getUserRuns(TARGET_USER_ID, FROM, TO, null, null, 50))
+                    .thenReturn(runList);
+
+            ResponseEntity<?> response = controller.getUserRuns(TARGET_USER_ID, FROM, TO, null, null, 50);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody()).isEqualTo(runList);
+        }
+
+        @Test
+        void returnsOkWhenTeamLeadSharesTeam() {
+            User targetUser = createTargetUser();
+            when(userRepository.findById(TARGET_USER_ID)).thenReturn(Optional.of(targetUser));
+            when(authContext.isOrgAdmin()).thenReturn(false);
+            when(authContext.getTeamIds()).thenReturn(List.of(TEAM_ID));
+            RunListResponse runList = new RunListResponse(List.of(), null, false);
+            when(analyticsService.getUserRuns(TARGET_USER_ID, FROM, TO, null, null, 50))
+                    .thenReturn(runList);
+
+            ResponseEntity<?> response = controller.getUserRuns(TARGET_USER_ID, FROM, TO, null, null, 50);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        }
+
+        @Test
+        void throwsForbiddenWhenTeamLeadDoesNotShareTeam() {
+            User targetUser = createTargetUser();
+            when(userRepository.findById(TARGET_USER_ID)).thenReturn(Optional.of(targetUser));
+            when(authContext.isOrgAdmin()).thenReturn(false);
+            when(authContext.getTeamIds()).thenReturn(List.of(UUID.randomUUID()));
+
+            assertThatThrownBy(() -> controller.getUserRuns(TARGET_USER_ID, FROM, TO, null, null, 50))
+                    .isInstanceOf(ResponseStatusException.class)
+                    .extracting(ex -> ((ResponseStatusException) ex).getStatusCode())
+                    .isEqualTo(HttpStatus.FORBIDDEN);
+        }
+
+        @Test
+        void throwsNotFoundWhenUserDoesNotExist() {
+            when(userRepository.findById(TARGET_USER_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> controller.getUserRuns(TARGET_USER_ID, FROM, TO, null, null, 50))
+                    .isInstanceOf(ResponseStatusException.class)
+                    .extracting(ex -> ((ResponseStatusException) ex).getStatusCode())
+                    .isEqualTo(HttpStatus.NOT_FOUND);
+        }
+
+        @Test
+        void capsLimitAt200() {
+            User targetUser = createTargetUser();
+            when(userRepository.findById(TARGET_USER_ID)).thenReturn(Optional.of(targetUser));
+            when(authContext.isOrgAdmin()).thenReturn(true);
+            RunListResponse runList = new RunListResponse(List.of(), null, false);
+            when(analyticsService.getUserRuns(TARGET_USER_ID, FROM, TO, null, null, 200))
+                    .thenReturn(runList);
+
+            controller.getUserRuns(TARGET_USER_ID, FROM, TO, null, null, 500);
+
+            verify(analyticsService).getUserRuns(TARGET_USER_ID, FROM, TO, null, null, 200);
+        }
+
+        @Test
+        void passesFiltersToService() {
+            User targetUser = createTargetUser();
+            when(userRepository.findById(TARGET_USER_ID)).thenReturn(Optional.of(targetUser));
+            when(authContext.isOrgAdmin()).thenReturn(true);
+            RunListResponse runList = new RunListResponse(List.of(), null, false);
+            when(analyticsService.getUserRuns(TARGET_USER_ID, FROM, TO, "code-review", "SUCCEEDED", 50))
+                    .thenReturn(runList);
+
+            controller.getUserRuns(TARGET_USER_ID, FROM, TO, "code-review", "SUCCEEDED", 50);
+
+            verify(analyticsService).getUserRuns(TARGET_USER_ID, FROM, TO, "code-review", "SUCCEEDED", 50);
         }
     }
 }
