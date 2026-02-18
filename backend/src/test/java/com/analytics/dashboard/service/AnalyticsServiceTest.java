@@ -16,6 +16,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.*;
@@ -918,6 +922,170 @@ class AnalyticsServiceTest {
 
             assertThat(result.errorCategory()).isEqualTo("TIMEOUT");
             assertThat(result.errorMessage()).isEqualTo("Operation timed out");
+        }
+    }
+
+    @Nested
+    class GetOrgRuns {
+
+        @Test
+        void returnsPagedRunsWithCorrectMapping() {
+            User user = new User(USER_ID_1, ORG_ID, "ext-1", "user1@test.com", "User One", "hash", "MEMBER");
+            Team team = new Team(TEAM_ID_1, ORG_ID, "ext-1", "Engineering");
+            AgentType type = new AgentType(UUID.randomUUID(), ORG_ID, "code-review", "Code Review");
+
+            AgentRun run = createSucceededRun(TEAM_ID_1, USER_ID_1, 1000L, new BigDecimal("0.10"), 5000L);
+            Page<AgentRun> page = new PageImpl<>(List.of(run), PageRequest.of(0, 25), 1);
+
+            when(agentRunRepository.findOrgFilteredPaged(eq(ORG_ID), any(), any(),
+                    isNull(), isNull(), isNull(), eq(false), eq(List.of()), eq(PageRequest.of(0, 25))))
+                    .thenReturn(page);
+            when(userRepository.findByOrgId(ORG_ID)).thenReturn(List.of(user));
+            when(teamRepository.findByOrgId(ORG_ID)).thenReturn(List.of(team));
+            when(agentTypeRepository.findByOrgId(ORG_ID)).thenReturn(List.of(type));
+
+            PagedRunListResponse result = analyticsService.getOrgRuns(
+                    ORG_ID, FROM, TO, null, null, null, null, 0, 25);
+
+            assertThat(result.runs()).hasSize(1);
+            assertThat(result.page()).isZero();
+            assertThat(result.totalPages()).isEqualTo(1);
+            assertThat(result.totalElements()).isEqualTo(1);
+
+            PagedRunListResponse.RunItem item = result.runs().get(0);
+            assertThat(item.runId()).isEqualTo(run.getId());
+            assertThat(item.userId()).isEqualTo(USER_ID_1);
+            assertThat(item.userName()).isEqualTo("User One");
+            assertThat(item.teamId()).isEqualTo(TEAM_ID_1);
+            assertThat(item.teamName()).isEqualTo("Engineering");
+            assertThat(item.agentType()).isEqualTo("code-review");
+            assertThat(item.agentTypeDisplayName()).isEqualTo("Code Review");
+            assertThat(item.status()).isEqualTo("SUCCEEDED");
+            assertThat(item.totalTokens()).isEqualTo(1000L);
+        }
+
+        @Test
+        void returnsEmptyPageWhenNoRuns() {
+            Page<AgentRun> emptyPage = new PageImpl<>(List.of(), PageRequest.of(0, 25), 0);
+
+            when(agentRunRepository.findOrgFilteredPaged(eq(ORG_ID), any(), any(),
+                    isNull(), isNull(), isNull(), eq(false), eq(List.of()), eq(PageRequest.of(0, 25))))
+                    .thenReturn(emptyPage);
+            when(userRepository.findByOrgId(ORG_ID)).thenReturn(List.of());
+            when(teamRepository.findByOrgId(ORG_ID)).thenReturn(List.of());
+            when(agentTypeRepository.findByOrgId(ORG_ID)).thenReturn(List.of());
+
+            PagedRunListResponse result = analyticsService.getOrgRuns(
+                    ORG_ID, FROM, TO, null, null, null, null, 0, 25);
+
+            assertThat(result.runs()).isEmpty();
+            assertThat(result.totalElements()).isZero();
+            assertThat(result.totalPages()).isZero();
+        }
+
+        @Test
+        void passesStatusFilterCorrectly() {
+            Page<AgentRun> emptyPage = new PageImpl<>(List.of(), PageRequest.of(0, 25), 0);
+            List<String> statuses = List.of("SUCCEEDED", "FAILED");
+
+            when(agentRunRepository.findOrgFilteredPaged(eq(ORG_ID), any(), any(),
+                    isNull(), isNull(), isNull(), eq(true), eq(statuses), eq(PageRequest.of(0, 25))))
+                    .thenReturn(emptyPage);
+            when(userRepository.findByOrgId(ORG_ID)).thenReturn(List.of());
+            when(teamRepository.findByOrgId(ORG_ID)).thenReturn(List.of());
+            when(agentTypeRepository.findByOrgId(ORG_ID)).thenReturn(List.of());
+
+            analyticsService.getOrgRuns(ORG_ID, FROM, TO, null, null, statuses, null, 0, 25);
+
+            verify(agentRunRepository).findOrgFilteredPaged(eq(ORG_ID), any(), any(),
+                    isNull(), isNull(), isNull(), eq(true), eq(statuses), eq(PageRequest.of(0, 25)));
+        }
+
+        @Test
+        void passesAllFiltersToRepository() {
+            Page<AgentRun> emptyPage = new PageImpl<>(List.of(), PageRequest.of(1, 10), 0);
+
+            when(agentRunRepository.findOrgFilteredPaged(eq(ORG_ID), any(), any(),
+                    eq(TEAM_ID_1), eq(USER_ID_1), eq("code-review"), eq(false), eq(List.of()),
+                    eq(PageRequest.of(1, 10))))
+                    .thenReturn(emptyPage);
+            when(userRepository.findByOrgId(ORG_ID)).thenReturn(List.of());
+            when(teamRepository.findByOrgId(ORG_ID)).thenReturn(List.of());
+            when(agentTypeRepository.findByOrgId(ORG_ID)).thenReturn(List.of());
+
+            analyticsService.getOrgRuns(ORG_ID, FROM, TO, TEAM_ID_1, USER_ID_1, null, "code-review", 1, 10);
+
+            verify(agentRunRepository).findOrgFilteredPaged(eq(ORG_ID), any(), any(),
+                    eq(TEAM_ID_1), eq(USER_ID_1), eq("code-review"), eq(false), eq(List.of()),
+                    eq(PageRequest.of(1, 10)));
+        }
+
+        @Test
+        void handlesUnknownUserAndTeam() {
+            AgentRun run = createSucceededRun(TEAM_ID_1, USER_ID_1, 1000L, new BigDecimal("0.10"), 5000L);
+            Page<AgentRun> page = new PageImpl<>(List.of(run), PageRequest.of(0, 25), 1);
+
+            when(agentRunRepository.findOrgFilteredPaged(eq(ORG_ID), any(), any(),
+                    isNull(), isNull(), isNull(), eq(false), eq(List.of()), eq(PageRequest.of(0, 25))))
+                    .thenReturn(page);
+            when(userRepository.findByOrgId(ORG_ID)).thenReturn(List.of());
+            when(teamRepository.findByOrgId(ORG_ID)).thenReturn(List.of());
+            when(agentTypeRepository.findByOrgId(ORG_ID)).thenReturn(List.of());
+
+            PagedRunListResponse result = analyticsService.getOrgRuns(
+                    ORG_ID, FROM, TO, null, null, null, null, 0, 25);
+
+            PagedRunListResponse.RunItem item = result.runs().get(0);
+            assertThat(item.userName()).isEqualTo("Unknown");
+            assertThat(item.teamName()).isEqualTo("Unknown");
+            assertThat(item.agentTypeDisplayName()).isEqualTo("code-review");
+        }
+
+        @Test
+        void handlesRunWithNullTeamId() {
+            AgentRun run = createRun(UUID.randomUUID(), ORG_ID, null, USER_ID_1,
+                    "SUCCEEDED", 1000L, new BigDecimal("0.10"), 5000L, "code-review",
+                    Instant.parse("2025-01-15T10:00:00Z"));
+            User user = new User(USER_ID_1, ORG_ID, "ext-1", "user1@test.com", "User One", "hash", "MEMBER");
+            Page<AgentRun> page = new PageImpl<>(List.of(run), PageRequest.of(0, 25), 1);
+
+            when(agentRunRepository.findOrgFilteredPaged(eq(ORG_ID), any(), any(),
+                    isNull(), isNull(), isNull(), eq(false), eq(List.of()), eq(PageRequest.of(0, 25))))
+                    .thenReturn(page);
+            when(userRepository.findByOrgId(ORG_ID)).thenReturn(List.of(user));
+            when(teamRepository.findByOrgId(ORG_ID)).thenReturn(List.of());
+            when(agentTypeRepository.findByOrgId(ORG_ID)).thenReturn(List.of());
+
+            PagedRunListResponse result = analyticsService.getOrgRuns(
+                    ORG_ID, FROM, TO, null, null, null, null, 0, 25);
+
+            PagedRunListResponse.RunItem item = result.runs().get(0);
+            assertThat(item.teamId()).isNull();
+            assertThat(item.teamName()).isEqualTo("Unknown");
+        }
+
+        @Test
+        void handlesRunWithNullFinishedAtAndDuration() {
+            AgentRun run = createRun(UUID.randomUUID(), ORG_ID, TEAM_ID_1, USER_ID_1,
+                    "RUNNING", 500L, new BigDecimal("0.05"), null, "code-review",
+                    Instant.parse("2025-01-15T10:00:00Z"));
+            run.setFinishedAt(null);
+            Page<AgentRun> page = new PageImpl<>(List.of(run), PageRequest.of(0, 25), 1);
+
+            when(agentRunRepository.findOrgFilteredPaged(eq(ORG_ID), any(), any(),
+                    isNull(), isNull(), isNull(), eq(false), eq(List.of()), eq(PageRequest.of(0, 25))))
+                    .thenReturn(page);
+            when(userRepository.findByOrgId(ORG_ID)).thenReturn(List.of());
+            when(teamRepository.findByOrgId(ORG_ID)).thenReturn(List.of());
+            when(agentTypeRepository.findByOrgId(ORG_ID)).thenReturn(List.of());
+
+            PagedRunListResponse result = analyticsService.getOrgRuns(
+                    ORG_ID, FROM, TO, null, null, null, null, 0, 25);
+
+            PagedRunListResponse.RunItem item = result.runs().get(0);
+            assertThat(item.finishedAt()).isNull();
+            assertThat(item.durationMs()).isZero();
+            assertThat(item.status()).isEqualTo("RUNNING");
         }
     }
 }
