@@ -33,7 +33,7 @@ public class AuthController {
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
         return userRepository.findByEmail(request.email())
                 .filter(user -> passwordEncoder.matches(request.password(), user.getPasswordHash()))
-                .map(user -> {
+                .<ResponseEntity<?>>map(user -> {
                     List<UUID> teamIds = user.getTeams().stream().map(Team::getId).toList();
                     String token = jwtUtil.generateToken(user.getId(), user.getOrgId(), user.getRole(), teamIds);
 

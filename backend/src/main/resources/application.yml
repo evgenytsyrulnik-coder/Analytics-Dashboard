@@ -28,5 +28,5 @@ app:
     expiration-ms: 86400000
   kafka-emulator:
     enabled: true
-    interval-seconds: 30
+    interval-seconds: 3
     batch-size: 5

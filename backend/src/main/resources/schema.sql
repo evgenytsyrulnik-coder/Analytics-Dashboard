@@ -108,9 +108,9 @@ CREATE TABLE budget_notifications (
     id              UUID PRIMARY KEY,
     budget_id       UUID NOT NULL REFERENCES budgets(id),
     threshold       DECIMAL(5,2) NOT NULL,
-    month           DATE NOT NULL,
+    "month"         DATE NOT NULL,
     notified_at     TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(budget_id, threshold, month)
+    UNIQUE(budget_id, threshold, "month")
 );
 
 -- Exports
