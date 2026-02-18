@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/client';
@@ -10,6 +11,7 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
 
 export default function OrgDashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [from, setFrom] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() - 30);
     return d.toISOString().split('T')[0];
@@ -124,8 +126,15 @@ export default function OrgDashboard() {
               </thead>
               <tbody>
                 {byTeam.teams.map((t) => (
-                  <tr key={t.teamId} className="border-b border-slate-100">
-                    <td className="py-2 font-medium">{t.teamName}</td>
+                  <tr
+                    key={t.teamId}
+                    className="border-b border-slate-100 cursor-pointer hover:bg-slate-50"
+                    onClick={() => navigate(`/teams/${t.teamId}`)}
+                  >
+                    <td className="py-2 font-medium">
+                      {t.teamName}
+                      <span className="text-blue-500 text-xs ml-1">&rarr;</span>
+                    </td>
                     <td className="text-right py-2">{t.totalRuns.toLocaleString()}</td>
                     <td className="text-right py-2">${parseFloat(t.totalCost).toFixed(2)}</td>
                     <td className="text-right py-2">{(t.successRate * 100).toFixed(1)}%</td>
@@ -195,9 +204,16 @@ export default function OrgDashboard() {
             </thead>
             <tbody>
               {topUsers.users.map((u, i) => (
-                <tr key={u.userId} className="border-b border-slate-100">
+                <tr
+                  key={u.userId}
+                  className="border-b border-slate-100 cursor-pointer hover:bg-slate-50"
+                  onClick={() => navigate(`/users/${u.userId}`)}
+                >
                   <td className="py-2">{i + 1}</td>
-                  <td className="py-2 font-medium">{u.displayName}</td>
+                  <td className="py-2 font-medium">
+                    {u.displayName}
+                    <span className="text-blue-500 text-xs ml-1">&rarr;</span>
+                  </td>
                   <td className="py-2 text-slate-500">{u.teamName}</td>
                   <td className="text-right py-2">{u.totalRuns.toLocaleString()}</td>
                   <td className="text-right py-2">{u.totalTokens.toLocaleString()}</td>

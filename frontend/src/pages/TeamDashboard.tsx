@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/client';
@@ -10,6 +10,7 @@ import type { AnalyticsSummary, TimeseriesData, ByTeamData } from '../types';
 export default function TeamDashboard() {
   const { teamId } = useParams<{ teamId: string }>();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [from, setFrom] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() - 30);
     return d.toISOString().split('T')[0];
@@ -19,8 +20,25 @@ export default function TeamDashboard() {
   const [timeseries, setTimeseries] = useState<TimeseriesData | null>(null);
   const [byUser, setByUser] = useState<ByTeamData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [resolvedTeamName, setResolvedTeamName] = useState<string | null>(null);
 
-  const teamName = user?.teams.find(t => t.teamId === teamId)?.teamName || 'Team';
+  // Try to get team name from user's teams first; fall back to API for ORG_ADMIN
+  const localTeamName = user?.teams.find(t => t.teamId === teamId)?.teamName;
+
+  useEffect(() => {
+    if (!localTeamName && user?.role === 'ORG_ADMIN' && user.orgId) {
+      api.get(`/orgs/${user.orgId}/teams`)
+        .then((res) => {
+          const match = res.data.teams.find((t: { team_id: string }) => t.team_id === teamId);
+          if (match) setResolvedTeamName(match.name);
+        })
+        .catch(() => {});
+    }
+  }, [teamId, localTeamName, user]);
+
+  const teamName = localTeamName || resolvedTeamName || 'Team';
+
+  const canViewUserDashboard = user?.role === 'ORG_ADMIN' || user?.role === 'TEAM_LEAD';
 
   const fetchData = async () => {
     if (!teamId) return;
@@ -97,8 +115,17 @@ export default function TeamDashboard() {
             </thead>
             <tbody>
               {byUser.teams.map((u) => (
-                <tr key={u.teamId} className="border-b border-slate-100">
-                  <td className="py-2 font-medium">{u.teamName}</td>
+                <tr
+                  key={u.teamId}
+                  className={`border-b border-slate-100 ${canViewUserDashboard ? 'cursor-pointer hover:bg-slate-50' : ''}`}
+                  onClick={canViewUserDashboard ? () => navigate(`/users/${u.teamId}`) : undefined}
+                >
+                  <td className="py-2 font-medium">
+                    {u.teamName}
+                    {canViewUserDashboard && (
+                      <span className="text-blue-500 text-xs ml-1">&rarr;</span>
+                    )}
+                  </td>
                   <td className="text-right py-2">{u.totalRuns.toLocaleString()}</td>
                   <td className="text-right py-2">{u.totalTokens.toLocaleString()}</td>
                   <td className="text-right py-2">${parseFloat(u.totalCost).toFixed(2)}</td>
