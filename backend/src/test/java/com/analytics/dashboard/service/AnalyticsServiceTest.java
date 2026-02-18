@@ -284,7 +284,6 @@ class AnalyticsServiceTest {
 
         @Test
         void returnsCorrectUserSummary() {
-            User user = new User(USER_ID_1, ORG_ID, "ext-1", "user@test.com", "Test User", "hash", "MEMBER");
             List<AgentRun> userRuns = List.of(
                     createSucceededRun(TEAM_ID_1, USER_ID_1, 1000L, new BigDecimal("0.10"), 5000L),
                     createFailedRun(TEAM_ID_1, USER_ID_1)
@@ -297,7 +296,6 @@ class AnalyticsServiceTest {
 
             when(agentRunRepository.findUserFiltered(eq(USER_ID_1), any(), any(), isNull(), isNull()))
                     .thenReturn(userRuns);
-            when(userRepository.findById(USER_ID_1)).thenReturn(Optional.of(user));
             when(agentRunRepository.findFiltered(eq(ORG_ID), any(), any(), isNull(), isNull(), isNull()))
                     .thenReturn(orgRuns);
 
@@ -313,7 +311,6 @@ class AnalyticsServiceTest {
 
         @Test
         void calculatesRankCorrectly() {
-            User user = new User(USER_ID_1, ORG_ID, "ext-1", "user@test.com", "Test User", "hash", "MEMBER");
             // User1 has 1 run, User2 has 3 runs => User1 ranks 2nd
             List<AgentRun> userRuns = List.of(
                     createSucceededRun(TEAM_ID_1, USER_ID_1, 1000L, new BigDecimal("0.10"), 5000L)
@@ -327,7 +324,6 @@ class AnalyticsServiceTest {
 
             when(agentRunRepository.findUserFiltered(eq(USER_ID_1), any(), any(), isNull(), isNull()))
                     .thenReturn(userRuns);
-            when(userRepository.findById(USER_ID_1)).thenReturn(Optional.of(user));
             when(agentRunRepository.findFiltered(eq(ORG_ID), any(), any(), isNull(), isNull(), isNull()))
                     .thenReturn(orgRuns);
 
@@ -339,10 +335,8 @@ class AnalyticsServiceTest {
 
         @Test
         void handlesEmptyRunsForUser() {
-            User user = new User(USER_ID_1, ORG_ID, "ext-1", "user@test.com", "Test User", "hash", "MEMBER");
             when(agentRunRepository.findUserFiltered(eq(USER_ID_1), any(), any(), isNull(), isNull()))
                     .thenReturn(Collections.emptyList());
-            when(userRepository.findById(USER_ID_1)).thenReturn(Optional.of(user));
             when(agentRunRepository.findFiltered(eq(ORG_ID), any(), any(), isNull(), isNull(), isNull()))
                     .thenReturn(Collections.emptyList());
 
