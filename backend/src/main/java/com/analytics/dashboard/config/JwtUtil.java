@@ -17,14 +17,11 @@ public class JwtUtil {
 
     private final SecretKey key;
     private final long expirationMs;
-    private final IdentityProviderConfig.ClaimsMapping claimsMapping;
 
     public JwtUtil(@Value("${app.jwt.secret}") String secret,
-                   @Value("${app.jwt.expiration-ms}") long expirationMs,
-                   IdentityProviderConfig idpConfig) {
+                   @Value("${app.jwt.expiration-ms}") long expirationMs) {
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.expirationMs = expirationMs;
-        this.claimsMapping = idpConfig.getOidc().getClaims();
     }
 
     public String generateToken(UUID userId, UUID orgId, String role, List<UUID> teamIds) {
@@ -48,24 +45,20 @@ public class JwtUtil {
     }
 
     public UUID getUserId(Claims claims) {
-        String claim = claimsMapping.getUserId();
-        if ("sub".equals(claim)) {
-            return UUID.fromString(claims.getSubject());
-        }
-        return UUID.fromString(claims.get(claim, String.class));
+        return UUID.fromString(claims.getSubject());
     }
 
     public UUID getOrgId(Claims claims) {
-        return UUID.fromString(claims.get(claimsMapping.getOrgId(), String.class));
+        return UUID.fromString(claims.get("org_id", String.class));
     }
 
     @SuppressWarnings("unchecked")
     public List<String> getRoles(Claims claims) {
-        return claims.get(claimsMapping.getRoles(), List.class);
+        return claims.get("roles", List.class);
     }
 
     @SuppressWarnings("unchecked")
     public List<String> getTeams(Claims claims) {
-        return claims.get(claimsMapping.getTeams(), List.class);
+        return claims.get("teams", List.class);
     }
 }
