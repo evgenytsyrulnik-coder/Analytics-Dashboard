@@ -15,6 +15,14 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8080',
         changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on('error', (err, _req, res) => {
+            if (res && 'writeHead' in res) {
+              (res as import('http').ServerResponse).writeHead(502, { 'Content-Type': 'application/json' });
+              (res as import('http').ServerResponse).end(JSON.stringify({ error: 'Backend unavailable' }));
+            }
+          });
+        },
       },
     },
   },

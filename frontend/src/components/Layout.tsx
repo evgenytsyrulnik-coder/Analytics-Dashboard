@@ -1,9 +1,33 @@
+import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import api from '../api/client';
+import type { TeamInfo } from '../types';
 
 export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [allTeams, setAllTeams] = useState<TeamInfo[] | null>(null);
+
+  useEffect(() => {
+    if (user?.role === 'ORG_ADMIN') {
+      let cancelled = false;
+      api.get(`/orgs/${user.orgId}/teams`)
+        .then((res) => {
+          if (cancelled) return;
+          const teams: TeamInfo[] = res.data.teams.map((t: { team_id: string; name: string }) => ({
+            teamId: t.team_id,
+            teamName: t.name,
+          }));
+          teams.sort((a, b) => a.teamName.localeCompare(b.teamName));
+          setAllTeams(teams);
+        })
+        .catch(() => {
+          if (!cancelled) setAllTeams(null);
+        });
+      return () => { cancelled = true; };
+    }
+  }, [user?.role, user?.orgId]);
 
   if (!user) return null;
 
@@ -12,14 +36,16 @@ export default function Layout() {
     navigate('/login');
   };
 
-  const navItems = [];
+  const teamsToShow = user.role === 'ORG_ADMIN' ? (allTeams ?? user.teams) : user.teams;
+
+  const navItems: { to: string; label: string }[] = [];
 
   if (user.role === 'ORG_ADMIN') {
     navItems.push({ to: '/org', label: 'Organization' });
   }
 
   if (user.role === 'ORG_ADMIN' || user.role === 'TEAM_LEAD') {
-    user.teams.forEach((team) => {
+    teamsToShow.forEach((team) => {
       navItems.push({ to: `/teams/${team.teamId}`, label: team.teamName });
     });
   }
@@ -35,7 +61,7 @@ export default function Layout() {
           <p className="text-slate-400 text-xs mt-1">Agent Usage Insights</p>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
