@@ -7,8 +7,8 @@ test.describe('Organization Runs List (AT-RL-001 to AT-RL-013)', () => {
     await page.waitForURL('**/org', { timeout: 15_000 });
     // Navigate to /org/runs
     await page.goto('/org/runs');
-    // Wait for runs table to load
-    await expect(page.getByText('Runs')).toBeVisible({ timeout: 15_000 });
+    // Wait for runs page heading to load
+    await expect(page.getByRole('heading', { name: 'Runs' })).toBeVisible({ timeout: 15_000 });
   });
 
   // AT-RL-001: Paginated runs table visible with column headers
@@ -130,11 +130,14 @@ test.describe('Organization Runs List (AT-RL-001 to AT-RL-013)', () => {
     // Click the status dropdown button
     await page.getByText('All results').click();
 
-    // Check that status options are visible
-    await expect(page.getByText('SUCCEEDED')).toBeVisible({ timeout: 5_000 });
-    await expect(page.getByText('FAILED')).toBeVisible();
-    await expect(page.getByText('CANCELLED')).toBeVisible();
-    await expect(page.getByText('RUNNING')).toBeVisible();
+    // Check that status options are visible in the dropdown menu
+    // Scope to the dropdown overlay to avoid matching StatusBadge in table cells
+    const dropdownMenu = page.locator('div[class*="absolute"][class*="z-20"]').first();
+    await expect(dropdownMenu).toBeVisible({ timeout: 5_000 });
+    await expect(dropdownMenu.getByText('SUCCEEDED')).toBeVisible();
+    await expect(dropdownMenu.getByText('FAILED')).toBeVisible();
+    await expect(dropdownMenu.getByText('CANCELLED')).toBeVisible();
+    await expect(dropdownMenu.getByText('RUNNING')).toBeVisible();
   });
 
   // AT-RL-012: Click run row navigates to /runs/:runId

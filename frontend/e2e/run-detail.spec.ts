@@ -79,7 +79,7 @@ test.describe('Run Detail (AT-RN-001 to AT-RN-009)', () => {
   // AT-RN-009: Back button present and works
   test('AT-RN-009: back button present and works', async ({ page }) => {
     await navigateToRunDetail(page);
-    const backButton = page.getByText('Back');
+    const backButton = page.getByRole('button', { name: /Back/ });
     await expect(backButton).toBeVisible({ timeout: 10_000 });
 
     // Click Back
