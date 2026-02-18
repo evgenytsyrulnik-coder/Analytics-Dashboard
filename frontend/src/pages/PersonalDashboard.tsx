@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { useAuth } from '../context/AuthContext';
 import api from '../api/client';
 import MetricCard from '../components/MetricCard';
 import DateRangeSelector from '../components/DateRangeSelector';
@@ -11,7 +10,6 @@ import type { UserSummary, TimeseriesData, RunListData } from '../types';
 const AUTO_REFRESH_INTERVAL = 15_000;
 
 export default function PersonalDashboard() {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [from, setFrom] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() - 30);
