@@ -4,7 +4,6 @@ import com.analytics.dashboard.config.JwtUtil;
 import com.analytics.dashboard.dto.LoginRequest;
 import com.analytics.dashboard.dto.LoginResponse;
 import com.analytics.dashboard.entity.Team;
-import com.analytics.dashboard.entity.User;
 import com.analytics.dashboard.repository.OrganizationRepository;
 import com.analytics.dashboard.repository.UserRepository;
 import jakarta.validation.Valid;
