@@ -8,7 +8,7 @@ import com.analytics.dashboard.repository.AgentTypeRepository;
 import com.analytics.dashboard.repository.BudgetRepository;
 import com.analytics.dashboard.repository.TeamRepository;
 import com.analytics.dashboard.repository.UserRepository;
-import com.analytics.dashboard.service.AnalyticsService;
+import com.analytics.dashboard.service.OrgAnalyticsService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -21,14 +21,14 @@ import java.util.UUID;
 @RequestMapping("/api/v1/orgs/{orgId}")
 public class OrgAnalyticsController {
 
-    private final AnalyticsService analyticsService;
+    private final OrgAnalyticsService analyticsService;
     private final TeamRepository teamRepository;
     private final UserRepository userRepository;
     private final AgentTypeRepository agentTypeRepository;
     private final BudgetRepository budgetRepository;
     private final AuthContext authContext;
 
-    public OrgAnalyticsController(AnalyticsService analyticsService,
+    public OrgAnalyticsController(OrgAnalyticsService analyticsService,
                                    TeamRepository teamRepository,
                                    UserRepository userRepository,
                                    AgentTypeRepository agentTypeRepository,

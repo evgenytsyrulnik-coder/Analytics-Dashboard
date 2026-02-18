@@ -9,7 +9,7 @@ import com.analytics.dashboard.repository.AgentTypeRepository;
 import com.analytics.dashboard.repository.BudgetRepository;
 import com.analytics.dashboard.repository.TeamRepository;
 import com.analytics.dashboard.repository.UserRepository;
-import com.analytics.dashboard.service.AnalyticsService;
+import com.analytics.dashboard.service.OrgAnalyticsService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -30,7 +30,7 @@ import static org.mockito.Mockito.*;
 class OrgAnalyticsControllerTest {
 
     @Mock
-    private AnalyticsService analyticsService;
+    private OrgAnalyticsService analyticsService;
     @Mock
     private TeamRepository teamRepository;
     @Mock

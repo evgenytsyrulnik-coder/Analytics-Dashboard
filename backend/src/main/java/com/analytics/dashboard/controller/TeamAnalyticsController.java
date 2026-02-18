@@ -1,7 +1,7 @@
 package com.analytics.dashboard.controller;
 
 import com.analytics.dashboard.config.AuthContext;
-import com.analytics.dashboard.service.AnalyticsService;
+import com.analytics.dashboard.service.TeamAnalyticsService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -14,10 +14,10 @@ import java.util.UUID;
 @RequestMapping("/api/v1/teams/{teamId}")
 public class TeamAnalyticsController {
 
-    private final AnalyticsService analyticsService;
+    private final TeamAnalyticsService analyticsService;
     private final AuthContext authContext;
 
-    public TeamAnalyticsController(AnalyticsService analyticsService, AuthContext authContext) {
+    public TeamAnalyticsController(TeamAnalyticsService analyticsService, AuthContext authContext) {
         this.analyticsService = analyticsService;
         this.authContext = authContext;
     }

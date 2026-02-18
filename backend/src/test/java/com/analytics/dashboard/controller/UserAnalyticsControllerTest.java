@@ -5,7 +5,7 @@ import com.analytics.dashboard.dto.*;
 import com.analytics.dashboard.entity.Team;
 import com.analytics.dashboard.entity.User;
 import com.analytics.dashboard.repository.UserRepository;
-import com.analytics.dashboard.service.AnalyticsService;
+import com.analytics.dashboard.service.UserAnalyticsService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -26,7 +26,7 @@ import static org.mockito.Mockito.*;
 class UserAnalyticsControllerTest {
 
     @Mock
-    private AnalyticsService analyticsService;
+    private UserAnalyticsService analyticsService;
     @Mock
     private AuthContext authContext;
     @Mock

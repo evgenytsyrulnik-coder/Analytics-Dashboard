@@ -1,7 +1,7 @@
 package com.analytics.dashboard.controller;
 
 import com.analytics.dashboard.config.AuthContext;
-import com.analytics.dashboard.service.AnalyticsService;
+import com.analytics.dashboard.service.UserAnalyticsService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -14,11 +14,11 @@ import java.util.UUID;
 @RequestMapping("/api/v1")
 public class UserAnalyticsController {
 
-    private final AnalyticsService analyticsService;
+    private final UserAnalyticsService analyticsService;
     private final AuthContext authContext;
     private final com.analytics.dashboard.repository.UserRepository userRepository;
 
-    public UserAnalyticsController(AnalyticsService analyticsService, AuthContext authContext,
+    public UserAnalyticsController(UserAnalyticsService analyticsService, AuthContext authContext,
                                    com.analytics.dashboard.repository.UserRepository userRepository) {
         this.analyticsService = analyticsService;
         this.authContext = authContext;
